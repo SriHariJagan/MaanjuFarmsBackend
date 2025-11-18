@@ -1,0 +1,66 @@
+[
+  {
+    "name": "Desi Ghee",
+    "description": "Pure homemade Desi Ghee, prepared using traditional methods for authentic taste and health benefits.",
+    "price": 450,
+    "stock": 120,
+    "image": "https://5.imimg.com/data5/SELLER/Default/2023/8/335955670/LB/IT/IH/191457182/buffalo-desi-ghee.jpg",
+    "category": "Dairy"
+  },
+  {
+    "name": "Chana Dal",
+    "description": "High-quality Chana Dal rich in protein and perfect for Indian recipes like dal fry and chana dal curry.",
+    "price": 120,
+    "stock": 250,
+    "image": "https://5.imimg.com/data5/YO/IK/MY-4757781/chana-dal-500x500.jpg",
+    "category": "Pulses"
+  },
+  {
+    "name": "Moong Dal",
+    "description": "Nutritious split Moong Dal that cooks quickly, making it ideal for light, healthy meals.",
+    "price": 140,
+    "stock": 200,
+    "image": "https://ifestore.com/wp-content/uploads/2024/03/green-mug-4.jpg",
+    "category": "Pulses"
+  },
+  {
+    "name": "Moth Dal",
+    "description": "Traditional Indian pulse with high protein and fiber, great for curries and sprouts.",
+    "price": 135,
+    "stock": 180,
+    "image": "https://image.myupchar.com/17473/webp/moth-dal-benefits-and-side-effects.webp",
+    "category": "Pulses"
+  },
+  {
+    "name": "Mustard Oil",
+    "description": "Cold-pressed mustard oil with a strong aroma, perfect for cooking and pickling.",
+    "price": 220,
+    "stock": 150,
+    "image": "https://sitarafoods.com/wp-content/uploads/2022/07/COLD-PRESSED-MUSTARD-OIL.jpg",
+    "category": "Oils"
+  },
+  {
+    "name": "Olive Oil",
+    "description": "Premium quality extra virgin olive oil, great for salads, cooking, and skincare.",
+    "price": 550,
+    "stock": 95,
+    "image": "https://5.imimg.com/data5/SELLER/Default/2022/12/WY/JH/DF/12352081/olive-oil-4-500x500.png",
+    "category": "Oils"
+  },
+  {
+    "name": "Groundnut Oil",
+    "description": "Pure cold-pressed groundnut oil that enhances the flavor of traditional Indian dishes.",
+    "price": 250,
+    "stock": 140,
+    "image": "https://5.imimg.com/data5/GA/CM/MY-2443832/cool-pressed-groundnut-oil-500x500.jpg",
+    "category": "Oils"
+  },
+  {
+    "name": "Homemade Honey",
+    "description": "Raw, unprocessed honey harvested from local beehives, rich in natural nutrients and flavor.",
+    "price": 300,
+    "stock": 170,
+    "image": "https://www.alphafoodie.com/wp-content/uploads/2024/12/Hot-Honey-square.jpeg",
+    "category": "Honey"
+  }
+]

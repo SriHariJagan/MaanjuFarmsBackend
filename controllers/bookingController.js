@@ -6,24 +6,46 @@ exports.bookRoom = async (req, res) => {
   try {
     const { roomId, checkIn, checkOut } = req.body;
 
-    const room = await Room.findById(roomId);
-    if (!room || room.status !== "available")
-      return res.status(400).json({ msg: "Room not available" });
+    // Validate inputs
+    if (!roomId || !checkIn || !checkOut) {
+      return res.status(400).json({ msg: "Missing booking details" });
+    }
 
+    const room = await Room.findById(roomId);
+    if (!room) return res.status(404).json({ msg: "Room not found" });
+
+    // Convert dates to Date objects
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+
+    // Check for overlapping bookings for the same room
+    const overlappingBooking = await Booking.findOne({
+      room: roomId,
+      $or: [
+        {
+          checkIn: { $lt: checkOutDate },
+          checkOut: { $gt: checkInDate },
+        },
+      ],
+    });
+
+    if (overlappingBooking) {
+      return res
+        .status(400)
+        .json({ msg: "Room already booked for selected dates" });
+    }
+
+    // Create booking
     const booking = new Booking({
       user: req.user.id,
       room: roomId,
-      checkIn,
-      checkOut,
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
       status: "confirmed",
     });
     await booking.save();
 
-    // Mark room as booked
-    room.status = "booked";
-    await room.save();
-
-    res.json({ msg: "Room booked", booking });
+    res.json({ msg: "Room booked successfully", booking });
   } catch (err) {
     res.status(500).json({ msg: "Server error", error: err.message });
   }
