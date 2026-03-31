@@ -1,16 +1,11 @@
 const express = require("express");
-const { authMiddleware, adminMiddleware } = require("../middleware/authMiddleware");
-const { createOrder, getUserOrders, getAllOrders } = require("../controllers/orderController");
-
 const router = express.Router();
 
-// User creates order
-router.post("/", authMiddleware, createOrder);
+const {getUserOrders,getAllOrders} = require("../controllers/orderController");
+const {authMiddleware,adminMiddleware} = require("../middleware/authMiddleware");
 
-// User views own orders
-router.get("/my-orders", authMiddleware, getUserOrders);
+router.get("/my-orders",authMiddleware,getUserOrders);
 
-// Admin views all orders
-router.get("/", authMiddleware, adminMiddleware, getAllOrders);
+router.get("/all",authMiddleware,adminMiddleware,getAllOrders);
 
 module.exports = router;

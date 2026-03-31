@@ -5,17 +5,32 @@ exports.addProduct = async (req, res) => {
   try {
     const { name, description, price, stock, image, category } = req.body;
 
-    // Optional: add validation check
     if (!name || !price || !stock || !category) {
       return res.status(400).json({ msg: "Missing required fields" });
     }
 
-    const product = new Product({ name, description, price, stock, image, category });
+    let imagePath = image;
+
+    // ✅ If file uploaded
+    if (req.file) {
+      imagePath = `/uploads/products/${req.file.filename}`;
+    }
+
+    const product = new Product({
+      name,
+      description,
+      price,
+      stock,
+      image: imagePath,
+      category,
+    });
+
     await product.save();
+
     res.status(201).json({ msg: "Product added", product });
   } catch (err) {
-    console.error("Add product error:", err);
-    res.status(500).json({ msg: "Server error", error: err.message });
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
   }
 };
 
@@ -23,15 +38,26 @@ exports.addProduct = async (req, res) => {
 // Update product
 exports.updateProduct = async (req, res) => {
   try {
+    let updateData = { ...req.body };
+
+    // ✅ If new image uploaded
+    if (req.file) {
+      updateData.image = `/uploads/products/${req.file.filename}`;
+    }
+
     const updated = await Product.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true }
     );
-    if (!updated) return res.status(404).json({ msg: "Product not found" });
+
+    if (!updated) {
+      return res.status(404).json({ msg: "Product not found" });
+    }
+
     res.json({ msg: "Product updated", product: updated });
   } catch (err) {
-    res.status(500).json({ msg: "Server error", error: err.message });
+    res.status(500).json({ msg: "Server error" });
   }
 };
 
