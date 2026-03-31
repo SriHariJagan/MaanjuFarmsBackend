@@ -31,7 +31,7 @@ const villas = [
   }
 ];
 
-const MONGO_URI = "mongodb+srv://maanjoofarms_db_user:2WJAUwXsjWIhDQAQ@cluster0.k1vwfxb.mongodb.net/maanjufarms_db?retryWrites=true&w=majority"; // change if needed
+const MONGO_URI = ""; // change if needed
 
 mongoose
   .connect(MONGO_URI)
