@@ -8,6 +8,18 @@ const bookingSchema = new mongoose.Schema(
     checkIn: { type: Date, required: true },
     checkOut: { type: Date, required: true },
 
+    guests: { type: Number },
+
+    guestDetails: [
+      {
+        name: String,
+        age: Number,
+        gender: String,
+      },
+    ],
+
+    totalAmount: Number,
+
     status: {
       type: String,
       enum: ["pending", "confirmed", "cancelled"],
@@ -20,17 +32,25 @@ const bookingSchema = new mongoose.Schema(
       default: "pending",
     },
 
-    stripeSessionId: { type: String, unique: true, sparse: true },
+    razorpayOrderId: {
+      type: String,
+      index: true,
+    },
+
+    razorpayPaymentId: {
+      type: String,
+    },
+
+    expiresAt: {
+      type: Date,
+      default: () => new Date(Date.now() + 15 * 60 * 1000),
+    },
+
   },
   { timestamps: true }
 );
 
-// Index for fast overlapping query
-bookingSchema.add({
-  expiresAt: {
-    type: Date,
-    default: () => new Date(Date.now() + 15 * 60 * 1000), // 15 mins
-  },
-});
+bookingSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 
 module.exports = mongoose.model("Booking", bookingSchema);

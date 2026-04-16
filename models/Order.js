@@ -26,25 +26,30 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
+    status: {
+      type: String,
+      enum: ["pending", "confirmed", "shipped", "delivered", "cancelled"],
+      default: "pending",
+    },
+
     paymentStatus: {
       type: String,
       enum: ["pending", "paid", "failed"],
       default: "pending",
     },
 
-    status: {
+    // ADD THESE FIELDS
+
+    razorpayOrderId: {
       type: String,
-      enum: [
-        "processing",
-        "confirmed",
-        "shipped",
-        "delivered",
-        "cancelled",
-      ],
-      default: "processing",
+      index: true,
     },
 
-    stripeSessionId: {
+    razorpayPaymentId: {
+      type: String,
+    },
+
+    razorpaySignature: {
       type: String,
     },
 
@@ -59,6 +64,11 @@ const orderSchema = new mongoose.Schema(
       state: String,
       pincode: String,
     },
+
+    emailSent: {
+      type: Boolean,
+      default: false,
+    }
   },
   { timestamps: true }
 );
@@ -69,11 +79,9 @@ const orderSchema = new mongoose.Schema(
 orderSchema.virtual("formattedAddress").get(function () {
   const a = this.deliveryAddress || {};
 
-  return `${a.street || ""}${
-    a.apartment ? ", " + a.apartment : ""
-  }, ${a.city || ""}, ${a.district || ""}, ${
-    a.state || ""
-  } - ${a.pincode || ""}`;
+  return `${a.street || ""}${a.apartment ? ", " + a.apartment : ""
+    }, ${a.city || ""}, ${a.district || ""}, ${a.state || ""
+    } - ${a.pincode || ""}`;
 });
 
 //

@@ -2,22 +2,23 @@ const express = require("express");
 const router = express.Router();
 
 const {
-  createProductCheckout,
-  createBookingCheckout,
-  verifySession,
+  createProductOrder,
+  createBookingOrder,
+  verifyPayment,
 } = require("../controllers/paymentController");
+
+const { razorpayWebhook } = require("../controllers/webhookController");
 
 const { authMiddleware } = require("../middleware/authMiddleware");
 
-// 🛒 Product
-router.post("/product-checkout", authMiddleware, createProductCheckout);
+// 🛒 Orders
+router.post("/product-order", authMiddleware, createProductOrder);
+router.post("/booking-order", authMiddleware, createBookingOrder);
 
-// 🏨 Booking
-router.post("/booking-checkout", authMiddleware, createBookingCheckout);
+// ⚠️ Optional (UI sync only, NOT business logic)
+router.post("/verify-payment", verifyPayment);
 
-// Verify
-router.get("/verify-session", verifySession);
-
-
+// 🔥 Webhook (REAL SOURCE OF TRUTH)
+router.post("/webhook", express.json({ type: "*/*" }), razorpayWebhook);
 
 module.exports = router;

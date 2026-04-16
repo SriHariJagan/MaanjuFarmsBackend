@@ -1,25 +1,24 @@
-const Stripe = require("stripe");
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const Razorpay = require("razorpay");
+const crypto = require("crypto");
 
 const User = require("../models/User");
 const Order = require("../models/Order");
 const Booking = require("../models/Booking");
 const Room = require("../models/Room");
 
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
 //
-// 🛒 PRODUCT CHECKOUT
+// 🛒 CREATE PRODUCT ORDER
 //
-exports.createProductCheckout = async (req, res) => {
+exports.createProductOrder = async (req, res) => {
   try {
-    const { address } = req.body;
-
-    if (!address) {
-      return res.status(400).json({ msg: "Address required" });
-    }
-
     const user = await User.findById(req.user.id).populate("cart.product");
 
-    if (!user || user.cart.length === 0) {
+    if (!user?.cart?.length) {
       return res.status(400).json({ msg: "Cart empty" });
     }
 
@@ -27,212 +26,128 @@ exports.createProductCheckout = async (req, res) => {
 
     const products = user.cart.map((item) => {
       totalAmount += item.product.price * item.quantity;
-
       return {
         product: item.product._id,
         quantity: item.quantity,
       };
     });
 
-    // ✅ Create order BEFORE payment
     const order = await Order.create({
-      user: req.user.id,
+      user: user._id,
       products,
       totalAmount,
-      deliveryAddress: address,
       paymentStatus: "pending",
+      status: "pending",
     });
 
-    const line_items = user.cart.map((item) => ({
-      price_data: {
-        currency: "inr",
-        product_data: {
-          name: item.product.name,
-        },
-        unit_amount: Math.round(item.product.price * 100),
-      },
-      quantity: item.quantity,
-    }));
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      line_items,
-      customer_email: user.email,
-
-      metadata: {
+    const razorOrder = await razorpay.orders.create({
+      amount: totalAmount * 100,
+      currency: "INR",
+      receipt: `order_${order._id}`,
+      notes: {
         type: "product",
         orderId: order._id.toString(),
       },
-
-      success_url: `${process.env.CLIENT_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.CLIENT_URL}/payment-failed?error=Payment cancelled`,
     });
 
-    order.stripeSessionId = session.id;
+    order.razorpayOrderId = razorOrder.id;
     await order.save();
 
-    res.json({ url: session.url });
-
+    res.json({
+      key: process.env.RAZORPAY_KEY_ID,
+      orderId: razorOrder.id,
+      amount: razorOrder.amount,
+      currency: razorOrder.currency,
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: "Payment error", error: err.message });
+    res.status(500).json({ msg: "Order creation failed" });
   }
 };
 
-
 //
-// 🏨 BOOKING CHECKOUT (NO DB WRITE HERE)
+// 🏨 CREATE BOOKING ORDER
 //
-exports.createBookingCheckout = async (req, res) => {
+exports.createBookingOrder = async (req, res) => {
   try {
-    const { villaId, checkIn, checkOut, guests } = req.body;
-
-    if (!villaId || !checkIn || !checkOut) {
-      return res.status(400).json({ msg: "Missing booking data" });
-    }
+    const { villaId, checkIn, checkOut, guestDetails } = req.body;
 
     const room = await Room.findById(villaId);
-    if (!room) {
-      return res.status(404).json({ msg: "Villa not found" });
-    }
-
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
-
-    if (checkOutDate <= checkInDate) {
-      return res.status(400).json({ msg: "Invalid dates" });
-    }
+    if (!room) return res.status(404).json({ msg: "Villa not found" });
 
     const nights =
-      (checkOutDate - checkInDate) / (1000 * 60 * 60 * 24);
+      (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24);
 
     const total = nights * room.price;
 
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-
-      line_items: [
-        {
-          price_data: {
-            currency: "inr",
-            product_data: {
-              name: `${room.name} (${nights} nights)`,
-            },
-            unit_amount: Math.round(total * 100),
-          },
-          quantity: 1,
-        },
-      ],
-
-      metadata: {
-        type: "booking",
-        userId: req.user.id,
-        roomId: villaId,
-        checkIn,
-        checkOut,
-        guests,
-      },
-
-      success_url: `${process.env.CLIENT_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.CLIENT_URL}/payment-failed?error=Booking cancelled`,
+    const booking = await Booking.create({
+      user: req.user.id,
+      room: villaId,
+      checkIn,
+      checkOut,
+      guestDetails,
+      totalAmount: total,
+      paymentStatus: "pending",
+      status: "pending",
     });
 
-    res.json({ url: session.url });
+    const razorOrder = await razorpay.orders.create({
+      amount: total * 100,
+      currency: "INR",
+      receipt: `booking_${booking._id}`,
+      notes: {
+        type: "booking",
+        bookingId: booking._id.toString(),
+      },
+    });
 
+    booking.razorpayOrderId = razorOrder.id;
+    await booking.save();
+
+    res.json({
+      key: process.env.RAZORPAY_KEY_ID,
+      orderId: razorOrder.id,
+      amount: razorOrder.amount,
+      currency: razorOrder.currency,
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ msg: "Stripe error", error: err.message });
+    res.status(500).json({ msg: "Booking failed" });
   }
 };
 
-
-//
-// 🔍 VERIFY SESSION (CREATE BOOKING HERE)
-//
-exports.verifySession = async (req, res) => {
+exports.verifyPayment = async (req, res) => {
   try {
-    const { session_id } = req.query;
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = req.body;
 
-    if (!session_id) {
-      return res.status(400).json({ success: false });
-    }
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
 
-    const session = await stripe.checkout.sessions.retrieve(session_id);
-
-    if (session.payment_status !== "paid") {
+    if (expectedSignature !== razorpay_signature) {
       return res.json({ success: false });
     }
 
-    const metadata = session.metadata;
+    // only check status (NO business logic)
+    const order = await Order.findOne({ razorpayOrderId: razorpay_order_id });
+    const booking = await Booking.findOne({ razorpayOrderId: razorpay_order_id });
 
-    /* ================= PRODUCT ================= */
-    if (metadata.type === "product") {
-      const order = await Order.findOne({
-        stripeSessionId: session_id,
-      });
-
-      if (!order) {
-        return res.status(404).json({ success: false });
-      }
-
-      order.paymentStatus = "paid";
-      await order.save();
-
-      // Clear cart
-      await User.findByIdAndUpdate(order.user, {
-        $set: { cart: [] },
-      });
-
+    if (order?.paymentStatus === "paid") {
       return res.json({ success: true, type: "product" });
     }
 
-    /* ================= BOOKING ================= */
-    if (metadata.type === "booking") {
-      const { userId, roomId, checkIn, checkOut, guests } = metadata;
-
-      // ✅ Prevent duplicate booking
-      const existingBooking = await Booking.findOne({
-        stripeSessionId: session_id,
-      });
-
-      if (existingBooking) {
-        return res.json({ success: true, type: "booking" });
-      }
-
-      const room = await Room.findById(roomId);
-      if (!room) {
-        return res.status(404).json({ success: false });
-      }
-
-      const checkInDate = new Date(checkIn);
-      const checkOutDate = new Date(checkOut);
-
-      const nights =
-        (checkOutDate - checkInDate) / (1000 * 60 * 60 * 24);
-
-      const total = nights * room.price;
-
-      // ✅ CREATE BOOKING AFTER PAYMENT
-      await Booking.create({
-        user: userId,
-        room: roomId,
-        checkIn: checkInDate,
-        checkOut: checkOutDate,
-        guests,
-        totalAmount: total,
-        paymentStatus: "paid",
-        stripeSessionId: session_id,
-      });
-
+    if (booking?.paymentStatus === "paid") {
       return res.json({ success: true, type: "booking" });
     }
 
-    return res.json({ success: false });
-
+    return res.json({ success: true, type: "processing" });
   } catch (err) {
-    console.error("Verify error:", err);
+    console.error(err);
     res.status(500).json({ success: false });
   }
 };

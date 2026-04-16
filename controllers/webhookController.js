@@ -1,98 +1,130 @@
-const Stripe = require("stripe");
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const crypto = require("crypto");
 
 const Order = require("../models/Order");
 const Booking = require("../models/Booking");
 const User = require("../models/User");
-const Room = require("../models/Room");
+const Product = require("../models/Product");
 
-exports.stripeWebhook = async (req, res) => {
-  const sig = req.headers["stripe-signature"];
-  let event;
+// ⚠️ In production use Redis instead of memory
+const processedPayments = new Set();
 
+exports.razorpayWebhook = async (req, res) => {
   try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-  } catch (err) {
-    console.error("❌ Webhook signature error:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
+    const signature = req.headers["x-razorpay-signature"];
 
-  try {
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object;
-
-      if (session.payment_status !== "paid") {
-        return res.json({ received: true });
-      }
-
-      const type = session.metadata?.type;
-
-      // ================= PRODUCT =================
-      if (type === "product") {
-        const order = await Order.findOne({
-          stripeSessionId: session.id,
-        });
-
-        if (!order || order.paymentStatus === "paid") {
-          return res.json({ received: true });
-        }
-
-        order.paymentStatus = "paid";
-        order.status = "confirmed";
-        await order.save();
-
-        await User.findByIdAndUpdate(order.user, {
-          $set: { cart: [] },
-        });
-
-        console.log("✅ Product order completed");
-      }
-
-      // ================= BOOKING =================
-      // inside webhook
-      if (type === "booking") {
-        const {
-          roomId,
-          userId,
-          checkIn,
-          checkOut,
-          guests,
-        } = session.metadata;
-
-
-        console.log("📦 Creating booking from webhook:", session.id);
-
-        // prevent duplicate
-        const exists = await Booking.findOne({
-          stripeSessionId: session.id,
-        });
-
-        if (exists) {
-          console.log("⚠️ Booking already exists");
-          return res.json({ received: true });
-        }
-
-        const booking = await Booking.create({
-          user: userId,
-          room: roomId,
-          checkIn: new Date(checkIn),
-          checkOut: new Date(checkOut),
-          guests,
-          status: "confirmed",
-          paymentStatus: "paid",
-          stripeSessionId: session.id,
-        });
-
-      }
+    if (!signature) {
+      return res.status(400).send("Missing signature");
     }
 
-    res.json({ received: true });
+    // ✅ RAW BODY (Buffer)
+    const rawBody = req.body;
+
+    // ================= VERIFY SIGNATURE =================
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .update(rawBody)
+      .digest("hex");
+
+    if (expectedSignature !== signature) {
+      console.log("❌ Invalid webhook signature");
+      return res.status(400).send("Invalid signature");
+    }
+
+    // ================= PARSE EVENT =================
+    const event = JSON.parse(rawBody.toString());
+
+    console.log("📩 Webhook event:", event.event);
+
+    if (event.event !== "payment.captured") {
+      return res.json({ status: "ignored" });
+    }
+
+    const payment = event.payload.payment.entity;
+
+    // ================= IDEMPOTENCY =================
+    if (processedPayments.has(payment.id)) {
+      return res.json({ status: "duplicate_skipped" });
+    }
+
+    processedPayments.add(payment.id);
+
+    const razorpayOrderId = payment.order_id;
+
+    // ================= PRODUCT ORDER =================
+    const order = await Order.findOne({ razorpayOrderId });
+
+    if (order) {
+      if (order.paymentStatus === "paid") {
+        return res.json({ status: "already_processed" });
+      }
+
+      const updatedOrder = await Order.findOneAndUpdate(
+        {
+          razorpayOrderId,
+          paymentStatus: "pending",
+        },
+        {
+          paymentStatus: "paid",
+          status: "confirmed",
+          razorpayPaymentId: payment.id,
+        },
+        { new: true }
+      );
+
+      if (!updatedOrder) {
+        return res.json({ status: "race_condition_prevented" });
+      }
+
+      const populated = await Order.findById(updatedOrder._id)
+        .populate("products.product user");
+
+      // ✅ Reduce stock safely
+      for (const item of populated.products) {
+        await Product.findOneAndUpdate(
+          { _id: item.product._id, stock: { $gte: item.quantity } },
+          { $inc: { stock: -item.quantity } }
+        );
+      }
+
+      // ✅ Clear user cart
+      await User.findByIdAndUpdate(populated.user._id, {
+        $set: { cart: [] },
+      });
+
+      console.log("✅ Product order processed");
+
+      return res.json({ status: "product_done" });
+    }
+
+    // ================= BOOKING =================
+    const booking = await Booking.findOne({ razorpayOrderId });
+
+    if (booking) {
+      if (booking.paymentStatus === "paid") {
+        return res.json({ status: "already_processed" });
+      }
+
+      await Booking.findOneAndUpdate(
+        {
+          razorpayOrderId,
+          paymentStatus: "pending",
+        },
+        {
+          paymentStatus: "paid",
+          status: "confirmed",
+          razorpayPaymentId: payment.id,
+        }
+      );
+
+      console.log("✅ Booking processed");
+
+      return res.json({ status: "booking_done" });
+    }
+
+    return res.json({ status: "not_found" });
+
   } catch (err) {
-    console.error("❌ Webhook error:", err);
+    console.error("🔥 Webhook error:", err);
     res.status(500).json({ error: "Webhook failed" });
   }
 };
