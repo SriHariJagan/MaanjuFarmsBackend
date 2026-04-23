@@ -35,6 +35,7 @@ const orderRoutes = require("./routers/order");
 const bookingRoutes = require("./routers/booking");
 const galleryRoutes = require("./routers/gallery");
 const paymentRoutes = require("./routers/payment");
+const contactRoutes = require("./routers/contactRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
@@ -44,6 +45,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/gallery", galleryRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/", contactRoutes );
 
 // ================== ERROR HANDLER ==================
 app.use((err, req, res, next) => {

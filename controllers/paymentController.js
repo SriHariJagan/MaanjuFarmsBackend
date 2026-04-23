@@ -59,6 +59,8 @@ exports.createProductOrder = async (req, res) => {
       amount: razorOrder.amount,
       currency: razorOrder.currency,
     });
+
+    console.log("✅ Product order created", );
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Order creation failed" });

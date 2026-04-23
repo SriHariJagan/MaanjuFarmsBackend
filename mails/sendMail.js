@@ -1,4 +1,3 @@
-// mails/sendMail.js
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
@@ -12,11 +11,11 @@ const transporter = nodemailer.createTransport({
 const sendMail = async ({ to, subject, html, attachments = [] }) => {
   try {
     await transporter.sendMail({
-      from: `"Manjoo Farming" <${process.env.EMAIL_USER}>`,
+      from: `"Maanjoo Farms" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       html,
-      attachments, // ✅ FIXED
+      attachments,
     });
   } catch (err) {
     console.error("Mail error:", err);
