@@ -1,3 +1,5 @@
+// models/Order.js
+
 const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema(
@@ -14,6 +16,7 @@ const orderSchema = new mongoose.Schema(
           type: mongoose.Schema.Types.ObjectId,
           ref: "Product",
         },
+
         quantity: {
           type: Number,
           required: true,
@@ -38,8 +41,6 @@ const orderSchema = new mongoose.Schema(
       default: "pending",
     },
 
-    // ADD THESE FIELDS
-
     razorpayOrderId: {
       type: String,
       index: true,
@@ -51,6 +52,22 @@ const orderSchema = new mongoose.Schema(
 
     razorpaySignature: {
       type: String,
+    },
+
+    // ✅ TRACKING DETAILS
+
+    trackingId: {
+      type: String,
+      default: "",
+    },
+
+    courierName: {
+      type: String,
+      default: "",
+    },
+
+    shippedAt: {
+      type: Date,
     },
 
     deliveryAddress: {
@@ -68,25 +85,21 @@ const orderSchema = new mongoose.Schema(
     emailSent: {
       type: Boolean,
       default: false,
-    }
+    },
   },
   { timestamps: true }
 );
 
-//
-// ✅ ADD VIRTUAL HERE (IMPORTANT)
-//
 orderSchema.virtual("formattedAddress").get(function () {
   const a = this.deliveryAddress || {};
 
-  return `${a.street || ""}${a.apartment ? ", " + a.apartment : ""
-    }, ${a.city || ""}, ${a.district || ""}, ${a.state || ""
-    } - ${a.pincode || ""}`;
+  return `${a.street || ""}${
+    a.apartment ? ", " + a.apartment : ""
+  }, ${a.city || ""}, ${a.district || ""}, ${a.state || ""} - ${
+    a.pincode || ""
+  }`;
 });
 
-//
-// ✅ ENABLE VIRTUALS IN JSON RESPONSE
-//
 orderSchema.set("toJSON", { virtuals: true });
 orderSchema.set("toObject", { virtuals: true });
 

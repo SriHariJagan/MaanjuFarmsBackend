@@ -14,7 +14,9 @@ exports.getGallery = async (req, res) => {
 exports.addGalleryItem = async (req, res) => {
   try {
     const { title, imageUrl } = req.body;
-    const uploadedImage = req.file ? `/uploads/${req.file.filename}` : null;
+    const uploadedImage = req.file
+      ? `/uploads/gallery/${req.file.filename}`
+      : null;
 
     if (!title || (!imageUrl && !uploadedImage)) {
       return res.status(400).json({ error: "Title and image or URL required" });
@@ -39,7 +41,9 @@ exports.updateGalleryItem = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, imageUrl } = req.body;
-    const uploadedImage = req.file ? `/uploads/${req.file.filename}` : null;
+    const uploadedImage = req.file
+      ? `/uploads/gallery/${req.file.filename}`
+      : null;
 
     if (!title && !imageUrl && !uploadedImage) {
       return res.status(400).json({ error: "Nothing to update" });
