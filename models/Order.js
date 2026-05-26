@@ -8,6 +8,7 @@ const orderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
 
     products: [
@@ -15,11 +16,13 @@ const orderSchema = new mongoose.Schema(
         product: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Product",
+          required: true,
         },
 
         quantity: {
           type: Number,
           required: true,
+          min: 1,
         },
       },
     ],
@@ -27,34 +30,55 @@ const orderSchema = new mongoose.Schema(
     totalAmount: {
       type: Number,
       required: true,
+      min: 0,
     },
 
     status: {
       type: String,
-      enum: ["pending", "confirmed", "shipped", "delivered", "cancelled"],
+      enum: [
+        "pending",
+        "confirmed",
+        "payment_failed",
+        "shipped",
+        "delivered",
+        "cancelled",
+      ],
       default: "pending",
+      index: true,
     },
 
     paymentStatus: {
       type: String,
       enum: ["pending", "paid", "failed"],
       default: "pending",
+      index: true,
     },
 
     razorpayOrderId: {
       type: String,
+      unique: true,
+      sparse: true,
       index: true,
     },
 
     razorpayPaymentId: {
       type: String,
+      unique: true,
+      sparse: true,
     },
 
     razorpaySignature: {
       type: String,
+      default: "",
     },
 
-    // ✅ TRACKING DETAILS
+    paidAt: {
+      type: Date,
+    },
+
+    // =====================================
+    // SHIPPING DETAILS
+    // =====================================
 
     trackingId: {
       type: String,
@@ -70,37 +94,112 @@ const orderSchema = new mongoose.Schema(
       type: Date,
     },
 
+    // =====================================
+    // DELIVERY ADDRESS
+    // =====================================
+
     deliveryAddress: {
-      name: String,
-      phone: String,
-      email: String,
-      street: String,
-      apartment: String,
-      city: String,
-      district: String,
-      state: String,
-      pincode: String,
+      name: {
+        type: String,
+        default: "",
+      },
+
+      phone: {
+        type: String,
+        default: "",
+      },
+
+      email: {
+        type: String,
+        default: "",
+      },
+
+      street: {
+        type: String,
+        default: "",
+      },
+
+      apartment: {
+        type: String,
+        default: "",
+      },
+
+      city: {
+        type: String,
+        default: "",
+      },
+
+      district: {
+        type: String,
+        default: "",
+      },
+
+      state: {
+        type: String,
+        default: "",
+      },
+
+      pincode: {
+        type: String,
+        default: "",
+      },
     },
 
     emailSent: {
       type: Boolean,
       default: false,
     },
+
+    webhookProcessed: {
+      type: Boolean,
+      default: false,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-orderSchema.virtual("formattedAddress").get(function () {
-  const a = this.deliveryAddress || {};
+// =====================================
+// INDEXES
+// =====================================
 
-  return `${a.street || ""}${
-    a.apartment ? ", " + a.apartment : ""
-  }, ${a.city || ""}, ${a.district || ""}, ${a.state || ""} - ${
-    a.pincode || ""
-  }`;
+orderSchema.index({
+  user: 1,
+  createdAt: -1,
 });
 
-orderSchema.set("toJSON", { virtuals: true });
-orderSchema.set("toObject", { virtuals: true });
+orderSchema.index({
+  paymentStatus: 1,
+  status: 1,
+});
 
-module.exports = mongoose.model("Order", orderSchema);
+// =====================================
+// VIRTUAL ADDRESS
+// =====================================
+
+orderSchema.virtual(
+  "formattedAddress"
+).get(function () {
+  const a = this.deliveryAddress || {};
+
+  return `${a.street || ""}${a.apartment
+      ? ", " + a.apartment
+      : ""
+    }, ${a.city || ""}, ${a.district || ""
+    }, ${a.state || ""} - ${a.pincode || ""
+    }`;
+});
+
+orderSchema.set("toJSON", {
+  virtuals: true,
+});
+
+orderSchema.set("toObject", {
+  virtuals: true,
+});
+
+module.exports = mongoose.model(
+  "Order",
+  orderSchema
+);

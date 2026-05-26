@@ -1,56 +1,133 @@
 const sendMail = require("./sendMail");
 
-const villaBookingTemplate = require("./templates/villaBooking");
-const productOrderTemplate = require("./templates/productOrder");
+// ================= TEMPLATES =================
+
+const villaBookingCustomerTemplate = require("./templates/villaBookingCustomer");
+
+const villaBookingAdminTemplate = require("./templates/villaBookingAdmin");
+
+const productOrderCustomerTemplate = require("./templates/productOrderCustomer");
+
+const productOrderAdminTemplate = require("./templates/productOrderAdmin");
+
 const contactMailTemplate = require("./templates/contactMail");
+
 const contactAutoReplyTemplate = require("./templates/contactAutoReply");
 
-const sendMailByType = async (type, data) => {
-  let html = "";
-  let subject = "";
+// ======================================================
+// SEND MAIL BY TYPE
+// ======================================================
 
+const sendMailByType = async (
+  type,
+  data
+) => {
   switch (type) {
-    case "VILLA_BOOKING":
-      subject = "Villa Booking Confirmation";
-      html = villaBookingTemplate(data);
 
-      await sendMail({
-        to: data.email,
-        subject,
-        html,
-      });
-      return;
+    // ==================================================
+    // PRODUCT ORDER
+    // ==================================================
 
     case "PRODUCT_ORDER":
-      subject = "Order Confirmation";
-      html = productOrderTemplate(data);
 
+      // CUSTOMER MAIL
       await sendMail({
-        to: data.email,
-        subject,
-        html,
+        to: data.user.email,
+
+        subject:
+          `Order Confirmation #${data.orderId}`,
+
+        html:
+          productOrderCustomerTemplate(
+            data
+          ),
       });
+
+      // ADMIN MAIL
+      await sendMail({
+        to: process.env.ADMIN_EMAIL,
+
+        subject:
+          `🛒 New Order Received #${data.orderId}`,
+
+        html:
+          productOrderAdminTemplate(
+            data
+          ),
+      });
+
       return;
 
-    case "CONTACT":
-      // ✅ Send to Admin
+    // ==================================================
+    // VILLA BOOKING
+    // ==================================================
+
+    case "VILLA_BOOKING":
+
+      // CUSTOMER MAIL
       await sendMail({
-        to: ["sriharijagan04@gmail.com"],
-        subject: "New Contact Inquiry",
-        html: contactMailTemplate(data),
+        to: data.user.email,
+
+        subject:
+          `Villa Booking Confirmation #${data.bookingId}`,
+
+        html:
+          villaBookingCustomerTemplate(
+            data
+          ),
       });
 
-      // ✅ Send Auto Reply to User
+      // ADMIN MAIL
+      await sendMail({
+        to: process.env.ADMIN_EMAIL,
+
+        subject:
+          `🏡 New Villa Booking #${data.bookingId}`,
+
+        html:
+          villaBookingAdminTemplate(
+            data
+          ),
+      });
+
+      return;
+
+    // ==================================================
+    // CONTACT
+    // ==================================================
+
+    case "CONTACT":
+
+      // ADMIN MAIL
+      await sendMail({
+        to: process.env.ADMIN_EMAIL,
+
+        subject:
+          "New Contact Inquiry",
+
+        html:
+          contactMailTemplate(data),
+      });
+
+      // USER AUTO REPLY
       await sendMail({
         to: data.email,
-        subject: "We received your message 🌿",
-        html: contactAutoReplyTemplate(data),
+
+        subject:
+          "We received your message 🌿",
+
+        html:
+          contactAutoReplyTemplate(
+            data
+          ),
       });
 
       return;
 
     default:
-      throw new Error("Invalid mail type");
+      throw new Error(
+        "Invalid mail type"
+      );
   }
 };
 

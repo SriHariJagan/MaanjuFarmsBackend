@@ -7,6 +7,7 @@ const User = require("../models/User");
 const Order = require("../models/Order");
 const Booking = require("../models/Booking");
 const Room = require("../models/Room");
+const Product = require("../models/Product");
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -24,13 +25,18 @@ exports.createProductOrder = async (req, res) => {
     const { address } = req.body;
 
     if (!address) {
-      return res.status(400).json({ msg: "Delivery address required" });
+      return res.status(400).json({
+        success: false,
+        msg: "Delivery address required",
+      });
     }
 
-    const user = await User.findById(req.user.id).populate("cart.product");
+    const user = await User.findById(req.user.id)
+      .populate("cart.product");
 
     if (!user || !user.cart.length) {
       return res.status(400).json({
+        success: false,
         msg: "Cart is empty",
       });
     }
@@ -44,9 +50,11 @@ exports.createProductOrder = async (req, res) => {
 
       if (!product) continue;
 
-      // STOCK CHECK
+      // ================= STOCK CHECK =================
+
       if (product.stock < item.quantity) {
         return res.status(400).json({
+          success: false,
           msg: `${product.name} stock unavailable`,
         });
       }
@@ -59,7 +67,8 @@ exports.createProductOrder = async (req, res) => {
       });
     }
 
-    // CREATE ORDER
+    // ================= CREATE ORDER =================
+
     const order = await Order.create({
       user: user._id,
 
@@ -84,9 +93,11 @@ exports.createProductOrder = async (req, res) => {
       },
     });
 
-    // CREATE RAZORPAY ORDER
+    // ================= CREATE RAZORPAY ORDER =================
+
     const razorOrder = await razorpay.orders.create({
       amount: totalAmount * 100,
+
       currency: "INR",
 
       receipt: `order_${order._id}`,
@@ -97,12 +108,18 @@ exports.createProductOrder = async (req, res) => {
       },
     });
 
-    // SAVE RAZORPAY ORDER ID
+    // ================= SAVE RAZORPAY ORDER ID =================
+
     order.razorpayOrderId = razorOrder.id;
 
     await order.save();
 
-    res.status(200).json({
+    console.log(
+      "✅ Product Order Created:",
+      order._id
+    );
+
+    return res.status(200).json({
       success: true,
 
       key: process.env.RAZORPAY_KEY_ID,
@@ -114,11 +131,14 @@ exports.createProductOrder = async (req, res) => {
       currency: razorOrder.currency,
     });
 
-    console.log("✅ Product Order Created:", order._id);
   } catch (err) {
-    console.error("CREATE PRODUCT ORDER ERROR:", err);
 
-    res.status(500).json({
+    console.error(
+      "CREATE PRODUCT ORDER ERROR:",
+      err
+    );
+
+    return res.status(500).json({
       success: false,
       msg: "Order creation failed",
     });
@@ -133,20 +153,43 @@ exports.createProductOrder = async (req, res) => {
 
 exports.createBookingOrder = async (req, res) => {
   try {
-    const { villaId, checkIn, checkOut, guestDetails } = req.body;
+
+    const {
+      villaId,
+      checkIn,
+      checkOut,
+      guestDetails,
+    } = req.body;
 
     const room = await Room.findById(villaId);
 
     if (!room) {
       return res.status(404).json({
+        success: false,
         msg: "Villa not found",
       });
     }
 
+    // ================= VALIDATE DATES =================
+
+    const checkInDate = new Date(checkIn);
+
+    const checkOutDate = new Date(checkOut);
+
     const nights =
-      (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24);
+      (checkOutDate - checkInDate) /
+      (1000 * 60 * 60 * 24);
+
+    if (nights <= 0) {
+      return res.status(400).json({
+        success: false,
+        msg: "Invalid booking dates",
+      });
+    }
 
     const total = nights * room.price;
+
+    // ================= CREATE BOOKING =================
 
     const booking = await Booking.create({
       user: req.user.id,
@@ -166,6 +209,8 @@ exports.createBookingOrder = async (req, res) => {
       status: "pending",
     });
 
+    // ================= CREATE RAZORPAY ORDER =================
+
     const razorOrder = await razorpay.orders.create({
       amount: total * 100,
 
@@ -183,7 +228,12 @@ exports.createBookingOrder = async (req, res) => {
 
     await booking.save();
 
-    res.status(200).json({
+    console.log(
+      "✅ Booking Order Created:",
+      booking._id
+    );
+
+    return res.status(200).json({
       success: true,
 
       key: process.env.RAZORPAY_KEY_ID,
@@ -194,10 +244,15 @@ exports.createBookingOrder = async (req, res) => {
 
       currency: razorOrder.currency,
     });
-  } catch (err) {
-    console.error("BOOKING ORDER ERROR:", err);
 
-    res.status(500).json({
+  } catch (err) {
+
+    console.error(
+      "BOOKING ORDER ERROR:",
+      err
+    );
+
+    return res.status(500).json({
       success: false,
       msg: "Booking failed",
     });
@@ -212,51 +267,98 @@ exports.createBookingOrder = async (req, res) => {
 
 exports.verifyPayment = async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-      req.body;
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = req.body;
 
     // VERIFY SIGNATURE
+
     const generatedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .createHmac(
+        "sha256",
+        process.env.RAZORPAY_KEY_SECRET
+      )
+      .update(
+        `${razorpay_order_id}|${razorpay_payment_id}`
+      )
       .digest("hex");
 
-    if (generatedSignature !== razorpay_signature) {
+    if (
+      generatedSignature !==
+      razorpay_signature
+    ) {
       return res.status(400).json({
         success: false,
         msg: "Payment verification failed",
       });
     }
 
-    //
-    // =================================
-    // PRODUCT ORDER
-    // =================================
-    //
+    // ONLY RETURN SUCCESS TO UI
+
+    return res.status(200).json({
+      success: true,
+      msg: "Payment verified",
+    });
+
+  } catch (err) {
+
+    console.error(
+      "VERIFY PAYMENT ERROR:",
+      err
+    );
+
+    return res.status(500).json({
+      success: false,
+      msg: "Payment verification failed",
+    });
+  }
+};
+
+//
+// ===========================================
+// ❌ MARK PAYMENT FAILED
+// ===========================================
+//
+
+exports.markPaymentFailed = async (req, res) => {
+  try {
+
+    const { razorpay_order_id } = req.body;
+
+    if (!razorpay_order_id) {
+      return res.status(400).json({
+        success: false,
+        msg: "razorpay_order_id required",
+      });
+    }
+
+    // ================= PRODUCT ORDER =================
 
     const order = await Order.findOne({
-      razorpayOrderId: razorpay_order_id,
+      razorpayOrderId:
+        razorpay_order_id,
     });
 
     if (order) {
-      // PREVENT DUPLICATE UPDATE
-      if (order.paymentStatus !== "paid") {
-        order.paymentStatus = "paid";
 
-        order.status = "confirmed";
+      // Prevent overwriting success
 
-        order.razorpayPaymentId = razorpay_payment_id;
+      if (
+        order.paymentStatus !== "paid"
+      ) {
 
-        order.razorpaySignature = razorpay_signature;
+        order.paymentStatus = "failed";
+
+        order.status = "cancelled";
 
         await order.save();
 
-        // CLEAR CART
-        await User.findByIdAndUpdate(order.user, {
-          cart: [],
-        });
-
-        console.log("✅ Product Payment Verified:", order._id);
+        console.log(
+          "❌ Product Payment Failed:",
+          order._id
+        );
       }
 
       return res.status(200).json({
@@ -265,29 +367,35 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
-    //
-    // =================================
-    // BOOKING PAYMENT
-    // =================================
-    //
+    // ================= BOOKING =================
 
-    const booking = await Booking.findOne({
-      razorpayOrderId: razorpay_order_id,
-    });
+    const booking =
+      await Booking.findOne({
+        razorpayOrderId:
+          razorpay_order_id,
+      });
 
     if (booking) {
-      if (booking.paymentStatus !== "paid") {
-        booking.paymentStatus = "paid";
 
-        booking.status = "confirmed";
+      // Prevent overwriting success
 
-        booking.razorpayPaymentId = razorpay_payment_id;
+      if (
+        booking.paymentStatus !==
+        "paid"
+      ) {
 
-        booking.razorpaySignature = razorpay_signature;
+        booking.paymentStatus =
+          "failed";
+
+        booking.status =
+          "cancelled";
 
         await booking.save();
 
-        console.log("✅ Booking Payment Verified:", booking._id);
+        console.log(
+          "❌ Booking Payment Failed:",
+          booking._id
+        );
       }
 
       return res.status(200).json({
@@ -300,12 +408,17 @@ exports.verifyPayment = async (req, res) => {
       success: false,
       msg: "Order not found",
     });
-  } catch (err) {
-    console.error("VERIFY PAYMENT ERROR:", err);
 
-    res.status(500).json({
+  } catch (err) {
+
+    console.error(
+      "MARK FAILED ERROR:",
+      err
+    );
+
+    return res.status(500).json({
       success: false,
-      msg: "Payment verification failed",
+      msg: "Failed to update payment",
     });
   }
 };

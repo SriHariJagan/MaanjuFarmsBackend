@@ -5,20 +5,35 @@ const {
   createProductOrder,
   createBookingOrder,
   verifyPayment,
+  markPaymentFailed,
 } = require("../controllers/paymentController");
-
-const { razorpayWebhook } = require("../controllers/webhookController");
 
 const { authMiddleware } = require("../middleware/authMiddleware");
 
 // 🛒 Orders
-router.post("/product-order", authMiddleware, createProductOrder);
-router.post("/booking-order", authMiddleware, createBookingOrder);
+router.post(
+  "/product-order",
+  authMiddleware,
+  createProductOrder
+);
 
-// ⚠️ Optional (UI sync only, NOT business logic)
-router.post("/verify-payment", verifyPayment);
+router.post(
+  "/booking-order",
+  authMiddleware,
+  createBookingOrder
+);
 
-// 🔥 Webhook (REAL SOURCE OF TRUTH)
-router.post("/webhook", express.json({ type: "*/*" }), razorpayWebhook);
+// ✅ Verify Payment
+router.post(
+  "/verify-payment",
+  verifyPayment
+);
+
+// ❌ Payment Failed
+router.post(
+  "/payment-failed",
+  authMiddleware,
+  markPaymentFailed
+);
 
 module.exports = router;
