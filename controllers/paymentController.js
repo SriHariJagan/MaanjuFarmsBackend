@@ -158,8 +158,26 @@ exports.createBookingOrder = async (req, res) => {
       villaId,
       checkIn,
       checkOut,
-      guestDetails,
+      guests = 1,
+      guestDetails = [],
     } = req.body;
+
+    console.log("BOOKING BODY:", req.body);
+
+    // ==========================================
+    // VALIDATION
+    // ==========================================
+
+    if (!villaId || !checkIn || !checkOut) {
+      return res.status(400).json({
+        success: false,
+        msg: "Missing booking details",
+      });
+    }
+
+    // ==========================================
+    // FIND ROOM
+    // ==========================================
 
     const room = await Room.findById(villaId);
 
@@ -170,15 +188,34 @@ exports.createBookingOrder = async (req, res) => {
       });
     }
 
-    // ================= VALIDATE DATES =================
+    // ==========================================
+    // BLOCK CHECK
+    // ==========================================
+
+    if (
+      room.isBlocked &&
+      room.blockedUntil &&
+      room.blockedUntil > new Date()
+    ) {
+      return res.status(400).json({
+        success: false,
+        msg: "Villa is temporarily unavailable",
+      });
+    }
+
+    // ==========================================
+    // DATE VALIDATION
+    // ==========================================
 
     const checkInDate = new Date(checkIn);
 
     const checkOutDate = new Date(checkOut);
 
     const nights =
-      (checkOutDate - checkInDate) /
-      (1000 * 60 * 60 * 24);
+      Math.ceil(
+        (checkOutDate - checkInDate) /
+        (1000 * 60 * 60 * 24)
+      );
 
     if (nights <= 0) {
       return res.status(400).json({
@@ -187,44 +224,74 @@ exports.createBookingOrder = async (req, res) => {
       });
     }
 
-    const total = nights * room.price;
+    // ==========================================
+    // TOTAL
+    // ==========================================
 
-    // ================= CREATE BOOKING =================
+    const totalAmount =
+      nights * room.price;
+
+    // ==========================================
+    // TEMP BLOCK ROOM FOR 1 MIN
+    // ==========================================
+
+    room.isBlocked = true;
+
+    room.blockedUntil = new Date(
+      Date.now() + 1 * 60 * 1000
+    );
+
+    await room.save();
+
+    // ==========================================
+    // CREATE BOOKING
+    // ==========================================
 
     const booking = await Booking.create({
       user: req.user.id,
 
       room: villaId,
 
-      checkIn,
+      checkIn: checkInDate,
 
-      checkOut,
+      checkOut: checkOutDate,
+
+      guests,
 
       guestDetails,
 
-      totalAmount: total,
+      totalAmount,
 
       paymentStatus: "pending",
 
       status: "pending",
     });
 
-    // ================= CREATE RAZORPAY ORDER =================
+    // ==========================================
+    // CREATE RAZORPAY ORDER
+    // ==========================================
 
-    const razorOrder = await razorpay.orders.create({
-      amount: total * 100,
+    const razorOrder =
+      await razorpay.orders.create({
+        amount: totalAmount * 100,
 
-      currency: "INR",
+        currency: "INR",
 
-      receipt: `booking_${booking._id}`,
+        receipt: `booking_${booking._id}`,
 
-      notes: {
-        type: "booking",
-        bookingId: booking._id.toString(),
-      },
-    });
+        notes: {
+          type: "booking",
+          bookingId:
+            booking._id.toString(),
+        },
+      });
 
-    booking.razorpayOrderId = razorOrder.id;
+    // ==========================================
+    // SAVE RAZORPAY ORDER ID
+    // ==========================================
+
+    booking.razorpayOrderId =
+      razorOrder.id;
 
     await booking.save();
 
@@ -236,13 +303,15 @@ exports.createBookingOrder = async (req, res) => {
     return res.status(200).json({
       success: true,
 
-      key: process.env.RAZORPAY_KEY_ID,
+      key:
+        process.env.RAZORPAY_KEY_ID,
 
       orderId: razorOrder.id,
 
       amount: razorOrder.amount,
 
-      currency: razorOrder.currency,
+      currency:
+        razorOrder.currency,
     });
 
   } catch (err) {
@@ -254,7 +323,9 @@ exports.createBookingOrder = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      msg: "Booking failed",
+      msg:
+        err.message ||
+        "Booking failed",
     });
   }
 };

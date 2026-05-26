@@ -43,9 +43,7 @@ const bookingSchema =
             default: "",
           },
 
-          age: {
-            type: Number,
-          },
+          age: Number,
 
           gender: {
             type: String,
@@ -112,10 +110,11 @@ const bookingSchema =
 
       expiresAt: {
         type: Date,
+
         default: () =>
           new Date(
             Date.now() +
-            15 * 60 * 1000
+            1 * 60 * 1000
           ),
       },
     },
@@ -123,15 +122,6 @@ const bookingSchema =
       timestamps: true,
     }
   );
-
-// =====================================
-// TTL INDEX
-// =====================================
-
-bookingSchema.index(
-  { expiresAt: 1 },
-  { expireAfterSeconds: 0 }
-);
 
 // =====================================
 // PERFORMANCE INDEXES

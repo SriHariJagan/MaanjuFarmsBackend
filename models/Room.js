@@ -9,6 +9,17 @@ const roomSchema = new mongoose.Schema(
     status: { type: String, enum: ["available", "maintenance"], default: "available" },
     description: String,
     image: String,
+    isBlocked: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    blockedUntil: {
+      type: Date,
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true }
 );

@@ -136,6 +136,7 @@ exports.razorpayWebhook = async (req, res) => {
 
             webhookProcessed:
               true,
+            paidAt: new Date(),
           },
 
           {
@@ -330,6 +331,8 @@ exports.razorpayWebhook = async (req, res) => {
 
             webhookProcessed:
               true,
+
+            paidAt: new Date(),
           },
 
           {
