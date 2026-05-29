@@ -7,10 +7,12 @@ const Order = require("../models/Order");
 const Booking = require("../models/Booking");
 const User = require("../models/User");
 const Product = require("../models/Product");
+const Room = require("../models/Room");
 
-const sendMailByType = require("../mails/mailTypes");
-
-exports.razorpayWebhook = async (req, res) => {
+exports.razorpayWebhook = async (
+  req,
+  res
+) => {
 
   const session =
     await mongoose.startSession();
@@ -18,11 +20,13 @@ exports.razorpayWebhook = async (req, res) => {
   try {
 
     // =====================================================
-    // SIGNATURE VALIDATION
+    // VALIDATE SIGNATURE
     // =====================================================
 
     const signature =
-      req.headers["x-razorpay-signature"];
+      req.headers[
+      "x-razorpay-signature"
+      ];
 
     if (!signature) {
 
@@ -33,17 +37,19 @@ exports.razorpayWebhook = async (req, res) => {
 
     const rawBody = req.body;
 
-    const expectedSignature = crypto
-      .createHmac(
-        "sha256",
-        process.env
-          .RAZORPAY_WEBHOOK_SECRET
-      )
-      .update(rawBody)
-      .digest("hex");
+    const expectedSignature =
+      crypto
+        .createHmac(
+          "sha256",
+          process.env
+            .RAZORPAY_WEBHOOK_SECRET
+        )
+        .update(rawBody)
+        .digest("hex");
 
     if (
-      expectedSignature !== signature
+      expectedSignature !==
+      signature
     ) {
 
       console.log(
@@ -64,8 +70,7 @@ exports.razorpayWebhook = async (req, res) => {
     );
 
     console.log(
-      "📩 Razorpay Webhook:",
-      event.event
+      `📩 Razorpay Event: ${event.event}`
     );
 
     // =====================================================
@@ -79,10 +84,6 @@ exports.razorpayWebhook = async (req, res) => {
 
       const payment =
         event.payload.payment.entity;
-
-      // =====================================================
-      // EXTRA SAFETY
-      // =====================================================
 
       if (
         payment.status !==
@@ -105,7 +106,7 @@ exports.razorpayWebhook = async (req, res) => {
       session.startTransaction();
 
       // =====================================================
-      // PRODUCT ORDER
+      // HANDLE PRODUCT ORDER
       // =====================================================
 
       const order =
@@ -117,26 +118,31 @@ exports.razorpayWebhook = async (req, res) => {
               $ne: "paid",
             },
 
-            webhookProcessed:
-              false,
+            webhookProcessed: {
+              $ne: true,
+            },
           },
 
           {
-            paymentStatus:
-              "paid",
+            $set: {
+              paymentStatus:
+                "paid",
 
-            status:
-              "confirmed",
+              status:
+                "confirmed",
 
-            razorpayPaymentId:
-              payment.id,
+              razorpayPaymentId:
+                payment.id,
 
-            razorpaySignature:
-              signature,
+              razorpaySignature:
+                signature,
 
-            webhookProcessed:
-              true,
-            paidAt: new Date(),
+              webhookProcessed:
+                true,
+
+              paidAt:
+                new Date(),
+            },
           },
 
           {
@@ -144,10 +150,6 @@ exports.razorpayWebhook = async (req, res) => {
             session,
           }
         );
-
-      // =====================================================
-      // PRODUCT ORDER FOUND
-      // =====================================================
 
       if (order) {
 
@@ -204,14 +206,10 @@ exports.razorpayWebhook = async (req, res) => {
               }
             );
 
-          // =====================================================
-          // STOCK FAILURE
-          // =====================================================
-
           if (!updatedProduct) {
 
             console.log(
-              `❌ Stock unavailable for ${item.product.name}`
+              `❌ Insufficient stock for ${item.product.name}`
             );
 
             await session.abortTransaction();
@@ -254,162 +252,89 @@ exports.razorpayWebhook = async (req, res) => {
 
         session.endSession();
 
-        // =====================================================
-        // SEND MAILS
-        // =====================================================
-
-        try {
-
-          await sendMailByType(
-            "PRODUCT_ORDER",
-            {
-              user:
-                populatedOrder.user,
-
-              orderId:
-                populatedOrder._id,
-
-              products:
-                populatedOrder.products,
-
-              totalAmount:
-                populatedOrder.totalAmount,
-
-              address:
-                populatedOrder.deliveryAddress,
-            }
-          );
-
-        } catch (mailErr) {
-
-          console.error(
-            "PRODUCT MAIL ERROR:",
-            mailErr
-          );
-        }
-
         console.log(
-          "✅ Product order processed:",
-          order._id
+          `✅ Product order processed: ${order._id}`
         );
 
         return res.json({
+          success: true,
+          type: "product",
           status:
-            "product_done",
+            "product_processed",
         });
       }
 
       // =====================================================
-      // BOOKING PAYMENT
+      // HANDLE BOOKING
       // =====================================================
 
-      const booking =
-        await Booking.findOneAndUpdate(
-          {
-            razorpayOrderId,
+      await Booking.findOneAndUpdate(
+        {
+          razorpayOrderId,
+        },
 
-            paymentStatus: {
-              $ne: "paid",
+        {
+          paymentStatus: "paid",
+
+          status: "confirmed",
+
+          razorpayPaymentId:
+            payment.id,
+
+          razorpaySignature:
+            signature,
+
+          webhookProcessed: true,
+
+          paidAt: new Date(),
+
+          $unset: {
+            expiresAt: 1,
+          },
+        },
+
+        {
+          new: true,
+          session,
+        }
+      );
+
+      if (booking) {
+
+        // =====================================================
+        // UNBLOCK ROOM
+        // =====================================================
+
+        await Room.findByIdAndUpdate(
+          booking.room,
+          {
+            $set: {
+              isBlocked: false,
+              blockedUntil: null,
             },
-
-            webhookProcessed:
-              false,
           },
-
           {
-            paymentStatus:
-              "paid",
-
-            status:
-              "confirmed",
-
-            razorpayPaymentId:
-              payment.id,
-
-            razorpaySignature:
-              signature,
-
-            webhookProcessed:
-              true,
-
-            paidAt: new Date(),
-          },
-
-          {
-            new: true,
             session,
           }
         );
 
-      // =====================================================
-      // BOOKING FOUND
-      // =====================================================
-
-      if (booking) {
+        // =====================================================
+        // COMMIT TRANSACTION
+        // =====================================================
 
         await session.commitTransaction();
 
         session.endSession();
 
-        // =====================================================
-        // POPULATE BOOKING
-        // =====================================================
-
-        const populatedBooking =
-          await Booking.findById(
-            booking._id
-          )
-            .populate("user")
-            .populate("room");
-
-        // =====================================================
-        // SEND MAILS
-        // =====================================================
-
-        try {
-
-          await sendMailByType(
-            "VILLA_BOOKING",
-            {
-              user:
-                populatedBooking.user,
-
-              bookingId:
-                populatedBooking._id,
-
-              room:
-                populatedBooking.room,
-
-              checkIn:
-                populatedBooking.checkIn,
-
-              checkOut:
-                populatedBooking.checkOut,
-
-              totalAmount:
-                populatedBooking.totalAmount,
-
-              guestDetails:
-                populatedBooking.guestDetails,
-            }
-          );
-
-        } catch (mailErr) {
-
-          console.error(
-            "BOOKING MAIL ERROR:",
-            mailErr
-          );
-        }
-
         console.log(
-          "✅ Booking processed:",
-          booking._id
+          `✅ Booking processed: ${booking._id}`
         );
 
         return res.json({
+          success: true,
+          type: "booking",
           status:
-            "booking_done",
+            "booking_processed",
         });
       }
 
@@ -422,6 +347,7 @@ exports.razorpayWebhook = async (req, res) => {
       session.endSession();
 
       return res.json({
+        success: false,
         status:
           "order_not_found",
       });
@@ -443,7 +369,7 @@ exports.razorpayWebhook = async (req, res) => {
         payment.order_id;
 
       // =====================================================
-      // PRODUCT FAILED
+      // PRODUCT PAYMENT FAILED
       // =====================================================
 
       const order =
@@ -457,18 +383,20 @@ exports.razorpayWebhook = async (req, res) => {
           },
 
           {
-            paymentStatus:
-              "failed",
+            $set: {
+              paymentStatus:
+                "failed",
 
-            status:
-              "payment_failed",
+              status:
+                "payment_failed",
 
-            razorpayPaymentId:
-              payment.id || "",
+              razorpayPaymentId:
+                payment.id || "",
 
-            failureReason:
-              payment.error_description ||
-              "",
+              failureReason:
+                payment.error_description ||
+                "",
+            },
           },
 
           {
@@ -479,18 +407,19 @@ exports.razorpayWebhook = async (req, res) => {
       if (order) {
 
         console.log(
-          "❌ Product payment failed:",
-          order._id
+          `❌ Product payment failed: ${order._id}`
         );
 
         return res.json({
+          success: true,
+          type: "product",
           status:
-            "product_failed",
+            "payment_failed",
         });
       }
 
       // =====================================================
-      // BOOKING FAILED
+      // BOOKING PAYMENT FAILED
       // =====================================================
 
       const booking =
@@ -504,18 +433,20 @@ exports.razorpayWebhook = async (req, res) => {
           },
 
           {
-            paymentStatus:
-              "failed",
+            $set: {
+              paymentStatus:
+                "failed",
 
-            status:
-              "cancelled",
+              status:
+                "cancelled",
 
-            razorpayPaymentId:
-              payment.id || "",
+              razorpayPaymentId:
+                payment.id || "",
 
-            failureReason:
-              payment.error_description ||
-              "",
+              failureReason:
+                payment.error_description ||
+                "",
+            },
           },
 
           {
@@ -525,20 +456,36 @@ exports.razorpayWebhook = async (req, res) => {
 
       if (booking) {
 
+        // =====================================================
+        // UNBLOCK ROOM
+        // =====================================================
+
+        await Room.findByIdAndUpdate(
+          booking.room,
+          {
+            $set: {
+              isBlocked: false,
+              blockedUntil: null,
+            },
+          }
+        );
+
         console.log(
-          "❌ Booking payment failed:",
-          booking._id
+          `❌ Booking payment failed: ${booking._id}`
         );
 
         return res.json({
+          success: true,
+          type: "booking",
           status:
-            "booking_failed",
+            "payment_failed",
         });
       }
 
       return res.json({
+        success: false,
         status:
-          "failed_order_not_found",
+          "payment_record_not_found",
       });
     }
 
@@ -547,6 +494,7 @@ exports.razorpayWebhook = async (req, res) => {
     // =====================================================
 
     return res.json({
+      success: true,
       status: "ignored",
       event: event.event,
     });
@@ -565,7 +513,7 @@ exports.razorpayWebhook = async (req, res) => {
     } catch (abortErr) {
 
       console.error(
-        "Abort Transaction Error:",
+        "Transaction Abort Error:",
         abortErr
       );
     }
@@ -578,7 +526,8 @@ exports.razorpayWebhook = async (req, res) => {
     );
 
     return res.status(500).json({
-      error: "Webhook failed",
+      success: false,
+      error: "Webhook processing failed",
     });
   }
 };

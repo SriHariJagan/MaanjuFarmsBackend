@@ -8,6 +8,7 @@ const Order = require("../models/Order");
 const Booking = require("../models/Booking");
 const Room = require("../models/Room");
 const Product = require("../models/Product");
+const sendMailByType = require("../mails/mailTypes");
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -162,7 +163,7 @@ exports.createBookingOrder = async (req, res) => {
       guestDetails = [],
     } = req.body;
 
-    console.log("BOOKING BODY:", req.body);
+    // console.log("BOOKING BODY:", req.body);
 
     // ==========================================
     // VALIDATION
@@ -295,10 +296,10 @@ exports.createBookingOrder = async (req, res) => {
 
     await booking.save();
 
-    console.log(
-      "✅ Booking Order Created:",
-      booking._id
-    );
+    // console.log(
+    //   "✅ Booking Order Created:",
+    //   booking._id
+    // );
 
     return res.status(200).json({
       success: true,
@@ -338,13 +339,16 @@ exports.createBookingOrder = async (req, res) => {
 
 exports.verifyPayment = async (req, res) => {
   try {
+
     const {
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
     } = req.body;
 
+    // ===========================================
     // VERIFY SIGNATURE
+    // ===========================================
 
     const generatedSignature = crypto
       .createHmac(
@@ -360,17 +364,284 @@ exports.verifyPayment = async (req, res) => {
       generatedSignature !==
       razorpay_signature
     ) {
+
       return res.status(400).json({
         success: false,
         msg: "Payment verification failed",
       });
     }
 
-    // ONLY RETURN SUCCESS TO UI
+    // ===========================================
+    // PRODUCT ORDER
+    // ===========================================
 
-    return res.status(200).json({
-      success: true,
-      msg: "Payment verified",
+    const order =
+      await Order.findOne({
+        razorpayOrderId:
+          razorpay_order_id,
+      });
+
+    if (order) {
+
+      let populatedOrder = null;
+
+      // ===========================================
+      // PREVENT DUPLICATE UPDATE
+      // ===========================================
+
+      if (
+        order.paymentStatus !== "paid"
+      ) {
+
+        order.paymentStatus = "paid";
+
+        order.status = "confirmed";
+
+        order.razorpayPaymentId =
+          razorpay_payment_id;
+
+        order.razorpaySignature =
+          razorpay_signature;
+
+        order.paidAt = new Date();
+
+        await order.save();
+
+        // ===========================================
+        // POPULATE ORDER
+        // ===========================================
+
+        populatedOrder =
+          await Order.findById(order._id)
+            .populate(
+              "products.product"
+            )
+            .populate("user");
+
+        // ===========================================
+        // REDUCE STOCK
+        // ===========================================
+
+        for (const item of populatedOrder.products) {
+
+          await Product.findByIdAndUpdate(
+            item.product._id,
+            {
+              $inc: {
+                stock:
+                  -item.quantity,
+              },
+            }
+          );
+        }
+
+        // ===========================================
+        // CLEAR CART
+        // ===========================================
+
+        await User.findByIdAndUpdate(
+          populatedOrder.user._id,
+          {
+            $set: {
+              cart: [],
+            },
+          }
+        );
+
+        // ===========================================
+        // SEND MAILS
+        // ===========================================
+
+        try {
+
+          await sendMailByType(
+            "PRODUCT_ORDER",
+            {
+              user:
+                populatedOrder.user,
+
+              orderId:
+                populatedOrder._id,
+
+              products:
+                populatedOrder.products,
+
+              totalAmount:
+                populatedOrder.totalAmount,
+
+              address:
+                populatedOrder.deliveryAddress,
+            }
+          );
+
+          // ===========================================
+          // UPDATE MAIL STATUS
+          // ===========================================
+
+          order.emailSent = true;
+
+          await order.save();
+
+          console.log(
+            "✅ Product mails sent"
+          );
+
+        } catch (mailErr) {
+
+          console.error(
+            "PRODUCT MAIL ERROR:",
+            mailErr
+          );
+        }
+
+        console.log(
+          "✅ Product Payment Verified:",
+          order._id
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        type: "product",
+      });
+    }
+
+    // ===========================================
+    // BOOKING
+    // ===========================================
+
+    const booking =
+      await Booking.findOne({
+        razorpayOrderId:
+          razorpay_order_id,
+      });
+
+    if (booking) {
+
+      let populatedBooking = null;
+
+      // ===========================================
+      // PREVENT DUPLICATE UPDATE
+      // ===========================================
+
+      if (
+        booking.paymentStatus !==
+        "paid"
+      ) {
+
+        booking.paymentStatus =
+          "paid";
+
+        booking.status =
+          "confirmed";
+
+        booking.razorpayPaymentId =
+          razorpay_payment_id;
+
+        booking.razorpaySignature =
+          razorpay_signature;
+
+        booking.paidAt =
+          new Date();
+
+        booking.expiresAt = null;
+
+        await booking.save();
+
+        // ===========================================
+        // UNBLOCK ROOM
+        // ===========================================
+
+        await Room.findByIdAndUpdate(
+          booking.room,
+          {
+            isBlocked: false,
+            blockedUntil: null,
+          }
+        );
+
+        // ===========================================
+        // POPULATE BOOKING
+        // ===========================================
+
+        populatedBooking =
+          await Booking.findById(
+            booking._id
+          )
+            .populate("user")
+            .populate("room");
+
+        // ===========================================
+        // SEND MAILS
+        // ===========================================
+
+        try {
+
+          await sendMailByType(
+            "VILLA_BOOKING",
+            {
+              user:
+                populatedBooking.user,
+
+              bookingId:
+                populatedBooking._id,
+
+              room:
+                populatedBooking.room,
+
+              checkIn:
+                populatedBooking.checkIn,
+
+              checkOut:
+                populatedBooking.checkOut,
+
+              totalAmount:
+                populatedBooking.totalAmount,
+
+              guestDetails:
+                populatedBooking.guestDetails,
+            }
+          );
+
+          // ===========================================
+          // UPDATE MAIL STATUS
+          // ===========================================
+
+          booking.emailSent = true;
+
+          await booking.save();
+
+          // console.log(
+          //   "✅ Booking mails sent"
+          // );
+
+        } catch (mailErr) {
+
+          console.error(
+            "BOOKING MAIL ERROR:",
+            mailErr
+          );
+        }
+
+        // console.log(
+        //   "✅ Booking Payment Verified:",
+        //   booking._id
+        // );
+      }
+
+      return res.status(200).json({
+        success: true,
+        type: "booking",
+      });
+    }
+
+    // ===========================================
+    // NOTHING FOUND
+    // ===========================================
+
+    return res.status(404).json({
+      success: false,
+      msg: "Order/Booking not found",
     });
 
   } catch (err) {
@@ -462,6 +733,7 @@ exports.markPaymentFailed = async (req, res) => {
           "cancelled";
 
         await booking.save();
+        await Room.findByIdAndUpdate( booking.room, { isBlocked: false, blockedUntil: null, } );
 
         console.log(
           "❌ Booking Payment Failed:",

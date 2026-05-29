@@ -32,7 +32,7 @@ const sendMailByType = async (
 
       // CUSTOMER MAIL
       await sendMail({
-        to: data.user.email,
+        to: [data.user.email, data.address.email],
 
         subject:
           `Order Confirmation #${data.orderId}`,
@@ -66,7 +66,7 @@ const sendMailByType = async (
 
       // CUSTOMER MAIL
       await sendMail({
-        to: data.user.email,
+        to: [data.user.email, data.address.email],
 
         subject:
           `Villa Booking Confirmation #${data.bookingId}`,
