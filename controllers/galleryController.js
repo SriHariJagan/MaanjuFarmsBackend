@@ -1,82 +1,123 @@
 const Gallery = require("../models/Gallery");
+const { deleteFile } = require("../utils/fileCleanup");
 
-// Get all gallery items
 exports.getGallery = async (req, res) => {
   try {
-    const items = await Gallery.find().sort({ createdAt: -1 });
-    res.json(items);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch gallery" });
-  }
-};
+    const { page, limit, all } = req.query;
 
-// Add a new gallery item (Admin only)
-exports.addGalleryItem = async (req, res) => {
-  try {
-    const { title, imageUrl } = req.body;
-    const uploadedImage = req.file
-      ? `/uploads/gallery/${req.file.filename}`
-      : null;
-
-    if (!title || (!imageUrl && !uploadedImage)) {
-      return res.status(400).json({ error: "Title and image or URL required" });
+    if (all === "true") {
+      const items = await Gallery.find().sort({ order: 1, createdAt: -1 });
+      return res.json({ success: true, data: items });
     }
 
-    const newItem = new Gallery({
-      title,
-      imageUrl: uploadedImage || imageUrl,
-      createdBy: req.user.id,
-    });
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(limit) || 20));
 
-    await newItem.save();
-    res.status(201).json(newItem);
+    const [total, items] = await Promise.all([
+      Gallery.countDocuments(),
+      Gallery.find()
+        .sort({ order: 1, createdAt: -1 })
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum)
+        .lean(),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        items,
+        total,
+        page: pageNum,
+        pages: Math.ceil(total / limitNum),
+      },
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to add gallery item" });
+    res.status(500).json({ success: false, error: "Failed to fetch gallery" });
   }
 };
 
-// Update gallery item (Admin only)
+exports.addGalleryItem = async (req, res) => {
+  try {
+    const { title, caption, order } = req.body;
+
+    const files = req.files && req.files.length > 0 ? req.files : req.file ? [req.file] : [];
+
+    if (!title || !title.trim()) {
+      files.forEach((f) => deleteFile(`/uploads/gallery/${f.filename}`));
+      return res.status(400).json({ success: false, error: "Title is required" });
+    }
+
+    if (files.length === 0) {
+      return res.status(400).json({ success: false, error: "At least one image is required" });
+    }
+
+    const items = files.map((file) => ({
+      title: title.trim(),
+      caption: caption || "",
+      imageUrl: `/uploads/gallery/${file.filename}`,
+      order: order !== undefined ? Number(order) : 0,
+      createdBy: req.user.id,
+    }));
+
+    const created = await Gallery.insertMany(items);
+
+    res.status(201).json({ success: true, data: created.length === 1 ? created[0] : created });
+  } catch (err) {
+    const files = req.files && req.files.length > 0 ? req.files : req.file ? [req.file] : [];
+    files.forEach((f) => deleteFile(`/uploads/gallery/${f.filename}`));
+    console.error(err);
+    res.status(500).json({ success: false, error: "Failed to add gallery item(s)" });
+  }
+};
+
 exports.updateGalleryItem = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, imageUrl } = req.body;
-    const uploadedImage = req.file
-      ? `/uploads/gallery/${req.file.filename}`
-      : null;
+    const { title, caption, order } = req.body;
 
-    if (!title && !imageUrl && !uploadedImage) {
-      return res.status(400).json({ error: "Nothing to update" });
+    const existing = await Gallery.findById(id);
+    if (!existing) {
+      if (req.file) deleteFile(`/uploads/gallery/${req.file.filename}`);
+      return res.status(404).json({ success: false, error: "Gallery item not found" });
     }
 
-    const updatedItem = await Gallery.findByIdAndUpdate(
-      id,
-      {
-        ...(title && { title }),
-        ...(uploadedImage && { imageUrl: uploadedImage }),
-        ...(imageUrl && { imageUrl }),
-      },
-      { new: true }
-    );
+    const updateData = {};
+    if (title !== undefined) updateData.title = title.trim();
+    if (caption !== undefined) updateData.caption = caption;
+    if (order !== undefined) updateData.order = Number(order);
 
-    if (!updatedItem) {
-      return res.status(404).json({ error: "Gallery item not found" });
+    if (req.file) {
+      if (existing.imageUrl) deleteFile(existing.imageUrl);
+      updateData.imageUrl = `/uploads/gallery/${req.file.filename}`;
     }
 
-    res.json(updatedItem);
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ success: false, error: "Nothing to update" });
+    }
+
+    const updated = await Gallery.findByIdAndUpdate(id, updateData, { new: true });
+
+    res.json({ success: true, data: updated });
   } catch (err) {
+    if (req.file) deleteFile(`/uploads/gallery/${req.file.filename}`);
     console.error(err);
-    res.status(500).json({ error: "Failed to update gallery item" });
+    res.status(500).json({ success: false, error: "Failed to update gallery item" });
   }
 };
 
-// Delete gallery item (Admin only)
 exports.deleteGalleryItem = async (req, res) => {
   try {
     const { id } = req.params;
+    const item = await Gallery.findById(id);
+    if (!item) return res.status(404).json({ success: false, error: "Gallery item not found" });
+
+    if (item.imageUrl) deleteFile(item.imageUrl);
     await Gallery.findByIdAndDelete(id);
-    res.json({ message: "Gallery item deleted" });
+
+    res.json({ success: true, data: { message: "Gallery item deleted" } });
   } catch (err) {
-    res.status(500).json({ error: "Failed to delete gallery item" });
+    console.error(err);
+    res.status(500).json({ success: false, error: "Failed to delete gallery item" });
   }
 };

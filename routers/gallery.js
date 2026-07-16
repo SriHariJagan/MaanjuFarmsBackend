@@ -2,27 +2,19 @@ const express = require("express");
 const router = express.Router();
 
 const galleryCtrl = require("../controllers/galleryController");
-
-const {
-  authMiddleware,
-  adminMiddleware,
-} = require("../middleware/authMiddleware");
-
+const { authMiddleware, adminMiddleware } = require("../middleware/authMiddleware");
 const multer = require("../middleware/multerMiddleware");
 
-// Get all
 router.get("/", galleryCtrl.getGallery);
 
-// Add gallery image
 router.post(
   "/",
   authMiddleware,
   adminMiddleware,
-  multer("gallery").single("image"),
+  multer("gallery").array("images", 10),
   galleryCtrl.addGalleryItem
 );
 
-// Update gallery image
 router.put(
   "/:id",
   authMiddleware,
@@ -31,12 +23,13 @@ router.put(
   galleryCtrl.updateGalleryItem
 );
 
-// Delete
-router.delete(
+router.patch(
   "/:id",
   authMiddleware,
   adminMiddleware,
-  galleryCtrl.deleteGalleryItem
+  galleryCtrl.updateGalleryItem
 );
+
+router.delete("/:id", authMiddleware, adminMiddleware, galleryCtrl.deleteGalleryItem);
 
 module.exports = router;

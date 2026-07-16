@@ -5,23 +5,24 @@ const {
   deleteRoom,
   getAllRooms,
   getRoomById,
-  checkRoomAvailability
+  checkRoomAvailability,
+  updateRoomStatus,
+  getRoomBookings,
 } = require("../controllers/roomController");
 
 const { authMiddleware, adminMiddleware } = require("../middleware/authMiddleware");
+const multer = require("../middleware/multerMiddleware");
 
 const router = express.Router();
 
-// Admin
-router.post("/", authMiddleware, adminMiddleware, addRoom);
-router.put("/:id", authMiddleware, adminMiddleware, updateRoom);
-router.delete("/:id", authMiddleware, adminMiddleware, deleteRoom);
-
-// Public
 router.get("/", getAllRooms);
 router.get("/:id", getRoomById);
-
-// 🔥 NEW: availability API
 router.get("/:id/availability", checkRoomAvailability);
+
+router.post("/", authMiddleware, adminMiddleware, multer("rooms").single("image"), addRoom);
+router.put("/:id", authMiddleware, adminMiddleware, multer("rooms").single("image"), updateRoom);
+router.delete("/:id", authMiddleware, adminMiddleware, deleteRoom);
+router.patch("/:id/status", authMiddleware, adminMiddleware, updateRoomStatus);
+router.get("/:id/bookings", authMiddleware, adminMiddleware, getRoomBookings);
 
 module.exports = router;
