@@ -76,7 +76,60 @@ exports.deleteProduct = async (req, res) => {
 // Get all products
 exports.getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find();
+    const {
+      search,
+      category,
+      minStock,
+      maxStock,
+      sortBy,
+      sortOrder,
+      page,
+      limit,
+    } = req.query;
+
+    let filter = {};
+
+    if (search) {
+      filter.name = { $regex: search, $options: "i" };
+    }
+
+    if (category) {
+      filter.category = category;
+    }
+
+    if (minStock || maxStock) {
+      filter.stock = {};
+      if (minStock) filter.stock.$gte = Number(minStock);
+      if (maxStock) filter.stock.$lte = Number(maxStock);
+    }
+
+    const hasPagination = page && limit;
+
+    if (hasPagination) {
+      const pageNum = Number(page);
+      const limitNum = Number(limit);
+      const sortField = sortBy || "createdAt";
+      const sortDir = sortOrder === "asc" ? 1 : -1;
+
+      const [products, total] = await Promise.all([
+        Product.find(filter)
+          .sort({ [sortField]: sortDir })
+          .skip((pageNum - 1) * limitNum)
+          .limit(limitNum),
+        Product.countDocuments(filter),
+      ]);
+
+      return res.json({
+        total,
+        page: pageNum,
+        pages: Math.ceil(total / limitNum),
+        products,
+      });
+    }
+
+    const sortField = sortBy || "createdAt";
+    const sortDir = sortOrder === "asc" ? 1 : -1;
+    const products = await Product.find(filter).sort({ [sortField]: sortDir });
     res.json(products);
   } catch (err) {
     res.status(500).json({ msg: "Server error", error: err.message });
