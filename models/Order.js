@@ -154,6 +154,14 @@ const orderSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    timeline: [
+      {
+        status: { type: String, required: true },
+        note: { type: String, default: "" },
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
   },
   {
     timestamps: true,

@@ -7,9 +7,17 @@ const gallerySchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    caption: {
+      type: String,
+      default: "",
+    },
     imageUrl: {
       type: String,
       required: true,
+    },
+    order: {
+      type: Number,
+      default: 0,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
