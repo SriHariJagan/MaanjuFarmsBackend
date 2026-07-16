@@ -72,10 +72,62 @@ exports.getUserBookings = async (req, res) => {
 // ✅ ADMIN BOOKINGS
 exports.getAllBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find()
+    const {
+      search,
+      status,
+      room,
+      fromDate,
+      toDate,
+      page,
+      limit,
+    } = req.query;
+
+    let filter = {};
+
+    if (search) {
+      filter.$or = [
+        { "guestDetails": { $elemMatch: { name: { $regex: search, $options: "i" } } } },
+      ];
+    }
+
+    if (status) filter.status = status;
+    if (room) filter.room = room;
+
+    if (fromDate || toDate) {
+      filter.createdAt = {};
+      if (fromDate) filter.createdAt.$gte = new Date(fromDate);
+      if (toDate) filter.createdAt.$lte = new Date(toDate);
+    }
+
+    const hasPagination = page && limit;
+
+    if (hasPagination) {
+      const pageNum = Number(page);
+      const limitNum = Number(limit);
+
+      const [bookings, total] = await Promise.all([
+        Booking.find(filter)
+          .populate("room")
+          .populate("user", "name email")
+          .sort({ createdAt: -1 })
+          .skip((pageNum - 1) * limitNum)
+          .limit(limitNum),
+        Booking.countDocuments(filter),
+      ]);
+
+      return res.json({
+        total,
+        page: pageNum,
+        pages: Math.ceil(total / limitNum),
+        bookings,
+      });
+    }
+
+    const bookings = await Booking.find(filter)
       .populate("room")
-      .populate("user")
+      .populate("user", "name email")
       .sort({ createdAt: -1 });
+
     res.json(bookings);
   } catch (err) {
     res.status(500).json({ msg: "Server error" });
