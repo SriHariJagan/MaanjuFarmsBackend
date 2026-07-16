@@ -88,9 +88,12 @@ exports.getAllRooms = async (req, res) => {
     const {
       category,
       type,
+      status,
       minPrice,
       maxPrice,
       search,
+      sortBy,
+      sortOrder,
       page = 1,
       limit = 10,
     } = req.query;
@@ -99,6 +102,7 @@ exports.getAllRooms = async (req, res) => {
 
     if (category) filter.category = category;
     if (type) filter.type = type;
+    if (status) filter.status = status;
 
     if (minPrice || maxPrice) {
       filter.price = {};
@@ -110,12 +114,16 @@ exports.getAllRooms = async (req, res) => {
       filter.name = { $regex: search, $options: "i" };
     }
 
-    const rooms = await Room.find(filter)
-      .skip((page - 1) * limit)
-      .limit(Number(limit))
-      .sort({ createdAt: -1 });
+    const sortField = sortBy || "createdAt";
+    const sortDir = sortOrder === "asc" ? 1 : -1;
 
-    const total = await Room.countDocuments(filter);
+    const [rooms, total] = await Promise.all([
+      Room.find(filter)
+        .sort({ [sortField]: sortDir })
+        .skip((page - 1) * limit)
+        .limit(Number(limit)),
+      Room.countDocuments(filter),
+    ]);
 
     res.json({
       total,
