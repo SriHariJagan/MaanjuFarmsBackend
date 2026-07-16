@@ -2,43 +2,37 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-/* ================= STORAGE ================= */
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_SIZE = 5 * 1024 * 1024;
+
 const storage = (folder = "general") =>
   multer.diskStorage({
     destination: (req, file, cb) => {
       const dir = path.join(__dirname, `../uploads/${folder}`);
-
-      // ✅ Create folder if not exists
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-
       cb(null, dir);
     },
-
     filename: (req, file, cb) => {
-      const uniqueName =
-        Date.now() + "-" + Math.round(Math.random() * 1e9);
-
+      const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
       cb(null, uniqueName + path.extname(file.originalname));
     },
   });
 
-/* ================= FILE FILTER ================= */
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith("image/")) {
+  if (ALLOWED_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Only images are allowed"), false);
+    cb(new Error("Only JPG, PNG, and WebP images are allowed"), false);
   }
 };
 
-/* ================= EXPORT ================= */
 const upload = (folder = "general") =>
   multer({
     storage: storage(folder),
     fileFilter,
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { fileSize: MAX_SIZE },
   });
 
 module.exports = upload;
