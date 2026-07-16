@@ -37,6 +37,10 @@ const galleryRoutes = require("./routers/gallery");
 const paymentRoutes = require("./routers/payment");
 const contactRoutes = require("./routers/contactRoutes");
 const pincodeRoutes = require("./routers/pincodeRoutes"); 
+const adminDashboardRoutes = require("./routers/adminDashboard");
+const adminAnalyticsRoutes = require("./routers/adminAnalytics");
+const adminUserRoutes = require("./routers/adminUsers");
+const adminReportRoutes = require("./routers/adminReports");
 
 
 app.use("/api/auth", authRoutes);
@@ -48,7 +52,11 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/gallery", galleryRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/pincode", pincodeRoutes);
-app.use("/api/", contactRoutes );
+app.use("/api/", contactRoutes);
+app.use("/api/admin/dashboard", adminDashboardRoutes);
+app.use("/api/admin/analytics", adminAnalyticsRoutes);
+app.use("/api/admin/users", adminUserRoutes);
+app.use("/api/admin/reports", adminReportRoutes);
 
 app.get("/api/test-pincode", (req, res) => {
   res.json({
