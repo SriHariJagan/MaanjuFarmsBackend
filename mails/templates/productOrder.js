@@ -11,7 +11,7 @@ const productOrderTemplate = ({ name, orderId, products, totalAmount }) => {
         ${item.quantity}
       </td>
       <td style="padding:10px;border-bottom:1px solid #eee;text-align:right;">
-        ₹ ${item.price}
+        ₹ ${item.price}${item.unit ? `/${item.unit}` : ""}
       </td>
     </tr>
   `).join("");

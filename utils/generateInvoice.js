@@ -36,8 +36,9 @@ const generateInvoice = (data) => {
     doc.moveDown(0.5);
 
     data.items.forEach((item, i) => {
+      const unitStr = item.unit ? `/${item.unit}` : "";
       doc.text(
-        `${i + 1}. ${item.name}  |  Qty: ${item.quantity}  |  ₹${item.price}`
+        `${i + 1}. ${item.name}  |  Qty: ${item.quantity}  |  ₹${item.price}${unitStr}`
       );
     });
 

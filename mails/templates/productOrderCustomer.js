@@ -39,7 +39,7 @@ module.exports = (data) => {
             padding:12px;
             text-align:right;
           ">
-            ₹${item.product.price}
+            ₹${item.product.price}${item.product.unit ? `/${item.product.unit}` : ""}
           </td>
 
           <td style="
