@@ -7,7 +7,8 @@ const productSchema = new mongoose.Schema(
     price: { type: Number, required: true },
     stock: { type: Number, required: true },
     image: { type: String }, // URL of the product image
-    category: { type: String, required: true } // ✅ New field for grouping
+    category: { type: String, required: true }, // ✅ New field for grouping
+    unit: { type: String, enum: ["kg", "liter", "piece", ""], default: "" }
   },
   { timestamps: true }
 );
