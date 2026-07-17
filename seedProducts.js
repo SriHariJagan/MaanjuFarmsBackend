@@ -1,12 +1,10 @@
+require("dotenv").config();
 const mongoose = require("mongoose");
-const Product = require("./models/Product"); // path to your Product model
-const products = require("./trimmedProducts.json"); // the JSON above
+const Product = require("./models/Product");
+const products = require("./trimmedProducts.json");
 
 mongoose
-  .connect("", {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(process.env.MONGO_URI)
   .then(async () => {
     console.log("MongoDB connected");
 

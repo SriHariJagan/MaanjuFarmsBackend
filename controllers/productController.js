@@ -3,7 +3,7 @@ const Product = require("../models/Product");
 // Add new product
 exports.addProduct = async (req, res) => {
   try {
-    const { name, description, price, stock, image, category } = req.body;
+    const { name, description, price, stock, image, category, unit } = req.body;
 
     if (!name || !price || !stock || !category) {
       return res.status(400).json({ msg: "Missing required fields" });
@@ -23,6 +23,7 @@ exports.addProduct = async (req, res) => {
       stock,
       image: imagePath,
       category,
+      unit,
     });
 
     await product.save();
