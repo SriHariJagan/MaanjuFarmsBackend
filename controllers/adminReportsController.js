@@ -151,6 +151,7 @@ exports.getProductsReport = async (req, res) => {
       name: p.name,
       category: p.category,
       price: p.price,
+      unit: p.unit || "",
       stock: p.stock,
       stockStatus: p.stock > 10 ? "In Stock" : p.stock >= 1 ? "Low Stock" : "Out of Stock",
     }));
@@ -158,7 +159,7 @@ exports.getProductsReport = async (req, res) => {
     const columns = [
       { key: "name", label: "Product Name", accessor: (r) => r.name },
       { key: "category", label: "Category", accessor: (r) => r.category },
-      { key: "price", label: "Price (₹)", accessor: (r) => r.price?.toFixed(2) },
+      { key: "price", label: "Price (₹)", accessor: (r) => r.unit ? `${r.price?.toFixed(2)}/${r.unit}` : r.price?.toFixed(2) },
       { key: "stock", label: "Stock", accessor: (r) => r.stock },
       { key: "stockStatus", label: "Stock Status", accessor: (r) => r.stockStatus },
     ];
@@ -191,6 +192,7 @@ exports.getInventoryReport = async (req, res) => {
       name: p.name,
       category: p.category,
       price: p.price,
+      unit: p.unit || "",
       stock: p.stock,
       stockValue: p.price * p.stock,
       stockStatus: p.stock > 10 ? "In Stock" : p.stock >= 1 ? "Low Stock" : "Out of Stock",
@@ -205,7 +207,7 @@ exports.getInventoryReport = async (req, res) => {
     const columns = [
       { key: "name", label: "Product Name", accessor: (r) => r.name },
       { key: "category", label: "Category", accessor: (r) => r.category },
-      { key: "price", label: "Price (₹)", accessor: (r) => r.price?.toFixed(2) },
+      { key: "price", label: "Price (₹)", accessor: (r) => r.unit ? `${r.price?.toFixed(2)}/${r.unit}` : r.price?.toFixed(2) },
       { key: "stock", label: "Stock", accessor: (r) => r.stock },
       { key: "stockValue", label: "Stock Value (₹)", accessor: (r) => r.stockValue?.toFixed(2) },
       { key: "stockStatus", label: "Stock Status", accessor: (r) => r.stockStatus },

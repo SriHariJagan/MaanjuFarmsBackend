@@ -136,6 +136,7 @@ exports.getProductAnalytics = async (req, res) => {
             category: "$product.category",
             price: "$product.price",
             image: "$product.image",
+            unit: "$product.unit",
             totalSold: 1,
           },
         },
