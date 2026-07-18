@@ -36,7 +36,9 @@ const bookingRoutes = require("./routers/booking");
 const galleryRoutes = require("./routers/gallery");
 const paymentRoutes = require("./routers/payment");
 const contactRoutes = require("./routers/contactRoutes");
-const pincodeRoutes = require("./routers/pincodeRoutes"); 
+const pincodeRoutes = require("./routers/pincodeRoutes");
+const policyRoutes = require("./routers/policy");
+const adminPolicyRoutes = require("./routers/adminPolicy");
 
 
 app.use("/api/auth", authRoutes);
@@ -48,6 +50,8 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/gallery", galleryRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/pincode", pincodeRoutes);
+app.use("/api/policies", policyRoutes);
+app.use("/api/admin/policies", adminPolicyRoutes);
 app.use("/api/", contactRoutes );
 
 app.get("/api/test-pincode", (req, res) => {

@@ -1,3 +1,4 @@
+require("dotenv").config();
 const mongoose = require("mongoose");
 const Room = require("./models/Room");
 
@@ -31,23 +32,20 @@ const villas = [
   }
 ];
 
-const MONGO_URI = ""; // change if needed
-
 mongoose
-  .connect(MONGO_URI)
+  .connect(process.env.MONGO_URI)
   .then(async () => {
-    console.log("MongoDB connected");
+    console.log("✅ MongoDB connected");
 
-     // Clear existing products (optional)
-    await Room.deleteMany({});
+    // Only delete existing villas, keep rooms
+    await Room.deleteMany({ category: "villa" });
 
-    // insert villas only (don’t delete rooms)
     await Room.insertMany(villas);
+    console.log(`✅ ${villas.length} villas added to DB`);
 
-    console.log("Villas added successfully!");
-    process.exit();
+    process.exit(0);
   })
   .catch((err) => {
-    console.error(err);
+    console.error("❌ Seed failed:", err);
     process.exit(1);
   });

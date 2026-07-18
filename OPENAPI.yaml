@@ -1,0 +1,1152 @@
+openapi: "3.0.3"
+info:
+  title: Maanjoo Farms API
+  description: |
+    Farm-to-Table E-Commerce & Villa Booking Platform Backend.
+    
+    ## Authentication
+    Most endpoints require a JWT Bearer token in the Authorization header.
+    Obtain a token via `POST /api/auth/login`.
+  version: "1.0.0"
+  contact:
+    name: Maanjoo Farms
+    email: maanjoofarms@gmail.com
+
+servers:
+  - url: http://localhost:5000/api
+    description: Development server
+  - url: https://your-domain.com/api
+    description: Production server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        msg:
+          type: string
+          example: Error description
+        message:
+          type: string
+          example: Error description
+        error:
+          type: string
+          example: Detailed error
+
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [user, admin]
+        cart:
+          type: array
+          items:
+            type: object
+            properties:
+              product:
+                type: string
+              quantity:
+                type: integer
+
+    Product:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        stock:
+          type: integer
+        image:
+          type: string
+        category:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Room:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+          enum: [room, villa]
+        type:
+          type: string
+          enum: [single, double, suite, villa, cottage]
+        price:
+          type: number
+        status:
+          type: string
+          enum: [available, maintenance]
+        description:
+          type: string
+        image:
+          type: string
+        isBlocked:
+          type: boolean
+        blockedUntil:
+          type: string
+          format: date-time
+          nullable: true
+
+    Order:
+      type: object
+      properties:
+        _id:
+          type: string
+        user:
+          type: string
+        products:
+          type: array
+          items:
+            type: object
+            properties:
+              product:
+                $ref: '#/components/schemas/Product'
+              quantity:
+                type: integer
+        totalAmount:
+          type: number
+        status:
+          type: string
+          enum: [pending, confirmed, payment_failed, shipped, delivered, cancelled]
+        paymentStatus:
+          type: string
+          enum: [pending, paid, failed]
+        razorpayOrderId:
+          type: string
+        deliveryAddress:
+          type: object
+          properties:
+            name:
+              type: string
+            phone:
+              type: string
+            street:
+              type: string
+            city:
+              type: string
+            state:
+              type: string
+            pincode:
+              type: string
+        trackingId:
+          type: string
+        courierName:
+          type: string
+        formattedAddress:
+          type: string
+
+    Booking:
+      type: object
+      properties:
+        _id:
+          type: string
+        user:
+          type: string
+        room:
+          $ref: '#/components/schemas/Room'
+        checkIn:
+          type: string
+          format: date
+        checkOut:
+          type: string
+          format: date
+        guests:
+          type: integer
+        totalAmount:
+          type: number
+        status:
+          type: string
+          enum: [pending, confirmed, payment_failed, cancelled]
+        paymentStatus:
+          type: string
+          enum: [pending, paid, failed]
+        expiresAt:
+          type: string
+          format: date-time
+
+    Gallery:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        imageUrl:
+          type: string
+        createdBy:
+          type: string
+
+    PincodeResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        blocked:
+          type: boolean
+        data:
+          type: object
+          properties:
+            pincode:
+              type: string
+            district:
+              type: string
+            state:
+              type: string
+            city:
+              type: string
+
+    BlockedPincode:
+      type: object
+      properties:
+        _id:
+          type: string
+        pincode:
+          type: string
+        district:
+          type: string
+        state:
+          type: string
+        reason:
+          type: string
+
+    RazorpayOrder:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        key:
+          type: string
+          example: rzp_test_xxxxxxxxxxxx
+        orderId:
+          type: string
+          example: order_xxxxxxxxx
+        amount:
+          type: integer
+          example: 440000
+        currency:
+          type: string
+          example: INR
+
+paths:
+  # ==================== AUTH ====================
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 1
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  msg:
+                    type: string
+                  role:
+                    type: string
+        '400':
+          description: User already exists
+        '500':
+          description: Server error
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid credentials
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+
+  # ==================== PRODUCTS ====================
+  /products:
+    get:
+      tags: [Products]
+      summary: Get all products
+      responses:
+        '200':
+          description: Array of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+
+    post:
+      tags: [Products]
+      summary: Create product (admin only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [name, price, stock, category]
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                price:
+                  type: number
+                stock:
+                  type: integer
+                category:
+                  type: string
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Product created
+        '400':
+          description: Missing required fields
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not admin)
+
+  /products/{id}:
+    get:
+      tags: [Products]
+      summary: Get product by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+
+    put:
+      tags: [Products]
+      summary: Update product (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                price:
+                  type: number
+                stock:
+                  type: integer
+                category:
+                  type: string
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Product updated
+        '404':
+          description: Product not found
+
+    delete:
+      tags: [Products]
+      summary: Delete product (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product deleted
+        '404':
+          description: Product not found
+
+  # ==================== ROOMS ====================
+  /rooms:
+    get:
+      tags: [Rooms]
+      summary: Get all rooms with filtering and pagination
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [room, villa]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [single, double, suite, villa, cottage]
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated rooms
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  pages:
+                    type: integer
+                  rooms:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Room'
+
+    post:
+      tags: [Rooms]
+      summary: Create room (admin only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, price]
+              properties:
+                name:
+                  type: string
+                category:
+                  type: string
+                type:
+                  type: string
+                price:
+                  type: number
+                status:
+                  type: string
+                description:
+                  type: string
+                image:
+                  type: string
+      responses:
+        '201':
+          description: Room created
+
+  /rooms/{id}:
+    get:
+      tags: [Rooms]
+      summary: Get room by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Room found
+
+    put:
+      tags: [Rooms]
+      summary: Update room (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Room updated
+
+    delete:
+      tags: [Rooms]
+      summary: Delete room (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Room deleted
+        '400':
+          description: Room has active bookings
+
+  /rooms/{id}/availability:
+    get:
+      tags: [Rooms]
+      summary: Check room availability for dates
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: checkIn
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: checkOut
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Availability result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available:
+                    type: boolean
+
+  # ==================== CART ====================
+  /cart:
+    get:
+      tags: [Cart]
+      summary: Get user's cart
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Cart with populated products
+
+  /cart/add:
+    post:
+      tags: [Cart]
+      summary: Add product to cart
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId]
+              properties:
+                productId:
+                  type: string
+                quantity:
+                  type: integer
+                  default: 1
+      responses:
+        '200':
+          description: Product added to cart
+        '404':
+          description: Product not found
+
+  /cart/remove:
+    post:
+      tags: [Cart]
+      summary: Remove product from cart
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId]
+              properties:
+                productId:
+                  type: string
+      responses:
+        '200':
+          description: Product removed from cart
+
+  # ==================== ORDERS ====================
+  /orders/my-orders:
+    get:
+      tags: [Orders]
+      summary: Get current user's orders
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Array of user orders
+
+  /orders/all:
+    get:
+      tags: [Orders]
+      summary: Get all orders (admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Array of all orders
+
+  /orders/update/{id}:
+    put:
+      tags: [Orders]
+      summary: Update order status/tracking (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [pending, confirmed, payment_failed, shipped, delivered, cancelled]
+                trackingId:
+                  type: string
+                courierName:
+                  type: string
+                paymentStatus:
+                  type: string
+                  enum: [pending, paid, failed]
+      responses:
+        '200':
+          description: Order updated
+        '404':
+          description: Order not found
+
+  # ==================== BOOKINGS ====================
+  /bookings:
+    post:
+      tags: [Bookings]
+      summary: Create booking (authenticated user)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roomId, checkIn, checkOut]
+              properties:
+                roomId:
+                  type: string
+                checkIn:
+                  type: string
+                  format: date
+                checkOut:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Booking created
+        '400':
+          description: Missing details / Invalid dates / Already booked
+
+    get:
+      tags: [Bookings]
+      summary: Get all bookings (admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Array of all bookings
+
+  /bookings/my-bookings:
+    get:
+      tags: [Bookings]
+      summary: Get user's bookings
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Array of user bookings
+
+  /bookings/cancel/{id}:
+    post:
+      tags: [Bookings]
+      summary: Cancel booking (owner only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Booking cancelled
+        '404':
+          description: Booking not found
+        '403':
+          description: Unauthorized (not owner)
+
+  # ==================== PAYMENTS ====================
+  /payment/product-order:
+    post:
+      tags: [Payments]
+      summary: Create Razorpay order for product purchase
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address]
+              properties:
+                address:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    phone:
+                      type: string
+                    street:
+                      type: string
+                    city:
+                      type: string
+                    state:
+                      type: string
+                    pincode:
+                      type: string
+      responses:
+        '200':
+          description: Razorpay order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RazorpayOrder'
+        '400':
+          description: Cart empty / Address required
+
+  /payment/booking-order:
+    post:
+      tags: [Payments]
+      summary: Create Razorpay order for villa booking
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [villaId, checkIn, checkOut]
+              properties:
+                villaId:
+                  type: string
+                checkIn:
+                  type: string
+                  format: date
+                checkOut:
+                  type: string
+                  format: date
+                guests:
+                  type: integer
+                guestDetails:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      age:
+                        type: integer
+                      gender:
+                        type: string
+      responses:
+        '200':
+          description: Razorpay order created
+
+  /payment/verify-payment:
+    post:
+      tags: [Payments]
+      summary: Verify Razorpay payment signature
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [razorpay_order_id, razorpay_payment_id, razorpay_signature]
+              properties:
+                razorpay_order_id:
+                  type: string
+                razorpay_payment_id:
+                  type: string
+                razorpay_signature:
+                  type: string
+      responses:
+        '200':
+          description: Payment verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  type:
+                    type: string
+                    enum: [product, booking]
+        '400':
+          description: Signature verification failed
+
+  /payment/payment-failed:
+    post:
+      tags: [Payments]
+      summary: Mark payment as failed
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [razorpay_order_id]
+              properties:
+                razorpay_order_id:
+                  type: string
+      responses:
+        '200':
+          description: Payment marked as failed
+
+  /payment/webhook:
+    post:
+      tags: [Payments]
+      summary: Razorpay webhook endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook processed
+
+  # ==================== GALLERY ====================
+  /gallery:
+    get:
+      tags: [Gallery]
+      summary: Get all gallery items
+      responses:
+        '200':
+          description: Array of gallery items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Gallery'
+
+    post:
+      tags: [Gallery]
+      summary: Add gallery item (admin only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                image:
+                  type: string
+                  format: binary
+                imageUrl:
+                  type: string
+      responses:
+        '201':
+          description: Gallery item created
+
+  /gallery/{id}:
+    put:
+      tags: [Gallery]
+      summary: Update gallery item (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Gallery item updated
+
+    delete:
+      tags: [Gallery]
+      summary: Delete gallery item (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Gallery item deleted
+
+  # ==================== CONTACT ====================
+  /contact:
+    post:
+      tags: [Contact]
+      summary: Submit contact form
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, phone, subject, message]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                subject:
+                  type: string
+                message:
+                  type: string
+      responses:
+        '200':
+          description: Message sent
+
+  # ==================== PINCODE ====================
+  /pincode/check/{pin}:
+    get:
+      tags: [Pincode]
+      summary: Validate pincode via India Post API
+      parameters:
+        - name: pin
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^\d{6}$'
+      responses:
+        '200':
+          description: Pincode result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PincodeResult'
+        '400':
+          description: Invalid pincode format
+        '404':
+          description: Invalid pincode
+
+  /pincode/blocked:
+    get:
+      tags: [Pincode]
+      summary: Get blocked pincodes (admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Blocked pincodes list
+
+    post:
+      tags: [Pincode]
+      summary: Block a pincode (admin only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pincode]
+              properties:
+                pincode:
+                  type: string
+                district:
+                  type: string
+                state:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        '201':
+          description: Pincode blocked
+
+  /pincode/blocked/{id}:
+    delete:
+      tags: [Pincode]
+      summary: Unblock a pincode (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pincode unblocked
+
+  # ==================== TEST ====================
+  /test-pincode:
+    get:
+      tags: [Health]
+      summary: Test endpoint (health check)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true

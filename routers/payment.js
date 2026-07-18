@@ -6,9 +6,10 @@ const {
   createBookingOrder,
   verifyPayment,
   markPaymentFailed,
+  refundPayment,
 } = require("../controllers/paymentController");
 
-const { authMiddleware } = require("../middleware/authMiddleware");
+const { authMiddleware, adminMiddleware } = require("../middleware/authMiddleware");
 
 // 🛒 Orders
 router.post(
@@ -26,6 +27,7 @@ router.post(
 // ✅ Verify Payment
 router.post(
   "/verify-payment",
+  authMiddleware,
   verifyPayment
 );
 
@@ -34,6 +36,14 @@ router.post(
   "/payment-failed",
   authMiddleware,
   markPaymentFailed
+);
+
+// 💰 Refund
+router.post(
+  "/refund",
+  authMiddleware,
+  adminMiddleware,
+  refundPayment
 );
 
 module.exports = router;

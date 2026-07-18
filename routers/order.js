@@ -1,13 +1,18 @@
-// routes/orderRoutes.js
+// routers/order.js
 
 const express = require("express");
-
 const router = express.Router();
 
 const {
   getUserOrders,
+  getOrderById,
   getAllOrders,
-  updateOrder,
+  getOrderStats,
+  updateOrderStatus,
+  updateDelivery,
+  cancelOrder,
+  resendEmail,
+  downloadInvoice,
 } = require("../controllers/orderController");
 
 const {
@@ -15,28 +20,17 @@ const {
   adminMiddleware,
 } = require("../middleware/authMiddleware");
 
-router.get(
-  "/my-orders",
-  authMiddleware,
-  getUserOrders
-);
+// ─── Admin Routes (must be before /:id) ─────────────────────
+router.get("/all", authMiddleware, adminMiddleware, getAllOrders);
 
-router.get(
-  "/all",
-  authMiddleware,
-  adminMiddleware,
-  getAllOrders
-);
-
-//
-// ✅ ADMIN UPDATE ORDER
-//
-
-router.put(
-  "/update/:id",
-  authMiddleware,
-  adminMiddleware,
-  updateOrder
-);
+// ─── Customer Routes ────────────────────────────────────────
+router.get("/my-orders", authMiddleware, getUserOrders);
+router.get("/:id", authMiddleware, getOrderById);
+router.post("/:id/cancel", authMiddleware, cancelOrder);
+router.get("/stats/dashboard", authMiddleware, adminMiddleware, getOrderStats);
+router.put("/:id/status", authMiddleware, adminMiddleware, updateOrderStatus);
+router.put("/:id/delivery", authMiddleware, adminMiddleware, updateDelivery);
+router.post("/:id/resend-email", authMiddleware, adminMiddleware, resendEmail);
+router.get("/:id/invoice", authMiddleware, downloadInvoice);
 
 module.exports = router;

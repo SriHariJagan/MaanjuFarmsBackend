@@ -31,8 +31,13 @@ const sendMailByType = async (
     case "PRODUCT_ORDER":
 
       // CUSTOMER MAIL
+      const productRecipients = [data.user.email];
+      if (data.address?.email && data.address.email !== data.user.email) {
+        productRecipients.push(data.address.email);
+      }
+
       await sendMail({
-        to: [data.user.email, data.address.email],
+        to: productRecipients,
 
         subject:
           `Order Confirmation #${data.orderId}`,
@@ -65,8 +70,13 @@ const sendMailByType = async (
     case "VILLA_BOOKING":
 
       // CUSTOMER MAIL
+      const bookingRecipients = [data.user.email];
+      if (data.address?.email && data.address.email !== data.user.email) {
+        bookingRecipients.push(data.address.email);
+      }
+
       await sendMail({
-        to: [data.user.email, data.address.email],
+        to: bookingRecipients,
 
         subject:
           `Villa Booking Confirmation #${data.bookingId}`,

@@ -8,6 +8,7 @@ const Booking = require("../models/Booking");
 const User = require("../models/User");
 const Product = require("../models/Product");
 const Room = require("../models/Room");
+const sendMailByType = require("../mails/mailTypes");
 
 exports.razorpayWebhook = async (
   req,
@@ -256,6 +257,20 @@ exports.razorpayWebhook = async (
           `✅ Product order processed: ${order._id}`
         );
 
+        // =====================================================
+        // SEND EMAILS (non-blocking, after transaction)
+        // =====================================================
+
+        sendMailByType("PRODUCT_ORDER", {
+          user: populatedOrder.user,
+          orderId: populatedOrder._id,
+          products: populatedOrder.products,
+          totalAmount: populatedOrder.totalAmount,
+          address: populatedOrder.deliveryAddress,
+        }).catch((e) =>
+          console.error("Webhook product email failed:", e.message)
+        );
+
         return res.json({
           success: true,
           type: "product",
@@ -268,38 +283,99 @@ exports.razorpayWebhook = async (
       // HANDLE BOOKING
       // =====================================================
 
-      await Booking.findOneAndUpdate(
-        {
-          razorpayOrderId,
-        },
+      const booking =
+        await Booking.findOneAndUpdate(
+          {
+            razorpayOrderId,
 
-        {
-          paymentStatus: "paid",
+            paymentStatus: {
+              $ne: "paid",
+            },
 
-          status: "confirmed",
-
-          razorpayPaymentId:
-            payment.id,
-
-          razorpaySignature:
-            signature,
-
-          webhookProcessed: true,
-
-          paidAt: new Date(),
-
-          $unset: {
-            expiresAt: 1,
+            webhookProcessed: {
+              $ne: true,
+            },
           },
-        },
 
-        {
-          new: true,
-          session,
-        }
-      );
+          {
+            $set: {
+              paymentStatus:
+                "paid",
+
+              status:
+                "confirmed",
+
+              razorpayPaymentId:
+                payment.id,
+
+              razorpaySignature:
+                signature,
+
+              webhookProcessed:
+                true,
+
+              paidAt:
+                new Date(),
+            },
+
+            $unset: {
+              expiresAt: 1,
+            },
+          },
+
+          {
+            new: true,
+            session,
+          }
+        );
 
       if (booking) {
+
+        // =====================================================
+        // PREVENT DOUBLE-BOOKING: check no overlapping paid booking
+        // =====================================================
+
+        const overlapping =
+          await Booking.findOne({
+            _id: {
+              $ne: booking._id,
+            },
+
+            room: booking.room,
+
+            status: {
+              $in: [
+                "confirmed",
+              ],
+            },
+
+            checkIn: {
+              $lt:
+                booking.checkOut,
+            },
+
+            checkOut: {
+              $gt:
+                booking.checkIn,
+            },
+          }).session(session);
+
+        if (overlapping) {
+
+          await session.abortTransaction();
+
+          session.endSession();
+
+          console.log(
+            `❌ Double-booking prevented: ${booking._id} overlaps with ${overlapping._id}`
+          );
+
+          return res.json({
+            success: false,
+            status:
+              "double_booking_prevented",
+          });
+        }
 
         // =====================================================
         // UNBLOCK ROOM
@@ -322,6 +398,14 @@ exports.razorpayWebhook = async (
         // COMMIT TRANSACTION
         // =====================================================
 
+        const populatedBooking =
+          await Booking.findById(
+            booking._id
+          )
+            .populate("user")
+            .populate("room")
+            .session(session);
+
         await session.commitTransaction();
 
         session.endSession();
@@ -329,6 +413,24 @@ exports.razorpayWebhook = async (
         console.log(
           `✅ Booking processed: ${booking._id}`
         );
+
+        // =====================================================
+        // SEND EMAILS (non-blocking, after transaction)
+        // =====================================================
+
+        if (populatedBooking) {
+          sendMailByType("VILLA_BOOKING", {
+            user: populatedBooking.user,
+            bookingId: populatedBooking._id,
+            room: populatedBooking.room,
+            checkIn: populatedBooking.checkIn,
+            checkOut: populatedBooking.checkOut,
+            totalAmount: populatedBooking.totalAmount,
+            guestDetails: populatedBooking.guestDetails,
+          }).catch((e) =>
+            console.error("Webhook booking email failed:", e.message)
+          );
+        }
 
         return res.json({
           success: true,

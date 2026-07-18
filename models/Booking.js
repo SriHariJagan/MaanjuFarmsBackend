@@ -150,6 +150,16 @@ const bookingSchema = new mongoose.Schema(
       default: false,
     },
 
+    emailSent: {
+      type: Boolean,
+      default: false,
+    },
+
+    failureReason: {
+      type: String,
+      default: "",
+    },
+
     // =====================================
     // AUTO DELETE ONLY PENDING BOOKINGS
     // =====================================

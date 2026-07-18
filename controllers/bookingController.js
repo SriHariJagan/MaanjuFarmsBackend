@@ -1,61 +1,7 @@
 const mongoose = require("mongoose");
 const Booking = require("../models/Booking");
 const Room = require("../models/Room");
-
-// ✅ CREATE BOOKING - safe for concurrency
-exports.bookRoom = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
-  try {
-    const { roomId, checkIn, checkOut } = req.body;
-    console.log(roomId, checkIn, checkOut)
-    if (!roomId || !checkIn || !checkOut)
-      return res.status(400).json({ msg: "Missing booking details" });
-
-    const room = await Room.findById(roomId).session(session);
-    if (!room) return res.status(404).json({ msg: "Room not found" });
-    if (room.status === "maintenance") return res.status(400).json({ msg: "Room under maintenance" });
-
-    const checkInDate = new Date(`${checkIn}T00:00:00`);
-    const checkOutDate = new Date(`${checkOut}T23:59:59`);
-
-    if (checkOutDate <= checkInDate) return res.status(400).json({ msg: "Invalid date range" });
-
-    // Prevent overlapping bookings per room
-    const overlapping = await Booking.findOne({
-      room: roomId,
-      status: { $in: ["pending", "confirmed"] },
-      expiresAt: { $gt: new Date() }, // 🔥 important
-      checkIn: { $lt: checkOutDate },
-      checkOut: { $gt: checkInDate },
-    }).session(session);
-
-    if (overlapping) return res.status(400).json({ msg: "Room already booked for selected dates" });
-
-    const booking = await Booking.create(
-      [
-        {
-          user: req.user.id,
-          room: roomId,
-          checkIn: checkInDate,
-          checkOut: checkOutDate,
-          status: "pending",
-        },
-      ],
-      { session }
-    );
-
-    await session.commitTransaction();
-    res.status(201).json({ msg: "Booking created", booking: booking[0] });
-  } catch (err) {
-    await session.abortTransaction();
-    console.error(err);
-    res.status(500).json({ msg: "Server error", error: err.message });
-  } finally {
-    session.endSession();
-  }
-};
+const sendMailByType = require("../mails/mailTypes");
 
 // ✅ USER BOOKINGS
 exports.getUserBookings = async (req, res) => {
@@ -91,8 +37,65 @@ exports.cancelBooking = async (req, res) => {
 
     booking.status = "cancelled";
     booking.paymentStatus = "failed";
+
+    // Unblock the room
+    await Room.findByIdAndUpdate(booking.room, {
+      isBlocked: false,
+      blockedUntil: null,
+    });
+
     await booking.save();
     res.json({ msg: "Booking cancelled" });
+  } catch (err) {
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+
+// ✅ ADMIN UPDATE BOOKING STATUS
+exports.updateBookingStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const booking = await Booking.findById(req.params.id)
+      .populate("user")
+      .populate("room");
+
+    if (!booking) return res.status(404).json({ msg: "Booking not found" });
+
+    const validStatuses = ["pending", "confirmed", "cancelled", "payment_failed"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ msg: `Invalid status: ${status}` });
+    }
+
+    booking.status = status;
+
+    if (status === "cancelled") {
+      booking.paymentStatus = "failed";
+      await Room.findByIdAndUpdate(booking.room, {
+        isBlocked: false,
+        blockedUntil: null,
+      });
+    }
+
+    if (status === "confirmed" && booking.paymentStatus === "pending") {
+      booking.paymentStatus = "paid";
+    }
+
+    await booking.save();
+
+    // Send email notification
+    if (status === "confirmed") {
+      sendMailByType("VILLA_BOOKING", {
+        user: booking.user,
+        bookingId: booking._id,
+        room: booking.room,
+        checkIn: booking.checkIn,
+        checkOut: booking.checkOut,
+        totalAmount: booking.totalAmount,
+        guestDetails: booking.guestDetails,
+      }).catch((e) => console.error("Booking status email failed:", e.message));
+    }
+
+    res.json({ success: true, msg: `Booking status updated to "${status}"`, booking });
   } catch (err) {
     res.status(500).json({ msg: "Server error" });
   }

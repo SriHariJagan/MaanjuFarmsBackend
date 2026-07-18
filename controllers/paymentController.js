@@ -2,12 +2,14 @@
 
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 
 const User = require("../models/User");
 const Order = require("../models/Order");
 const Booking = require("../models/Booking");
 const Room = require("../models/Room");
 const Product = require("../models/Product");
+const BlockedPincode = require("../models/BlockedPincode");
 const sendMailByType = require("../mails/mailTypes");
 
 const razorpay = new Razorpay({
@@ -30,6 +32,21 @@ exports.createProductOrder = async (req, res) => {
         success: false,
         msg: "Delivery address required",
       });
+    }
+
+    // ================= PINCODE CHECK =================
+
+    if (address.pincode) {
+      const blocked = await BlockedPincode.findOne({
+        pincode: address.pincode,
+      });
+
+      if (blocked) {
+        return res.status(400).json({
+          success: false,
+          msg: `Delivery not available: ${blocked.reason || "Pincode is blocked"}`,
+        });
+      }
     }
 
     const user = await User.findById(req.user.id)
@@ -229,6 +246,16 @@ exports.createBookingOrder = async (req, res) => {
     // TOTAL
     // ==========================================
 
+    // ==========================================
+    // SANITIZE GUEST DETAILS
+    // ==========================================
+
+    const sanitizedGuests = (guestDetails || []).slice(0, guests).map((g) => ({
+      name: String(g.name || "").trim().slice(0, 100),
+      age: Math.max(0, Math.min(150, parseInt(g.age) || 0)),
+      gender: ["Male", "Female", "Other"].includes(g.gender) ? g.gender : "",
+    }));
+
     const totalAmount =
       nights * room.price;
 
@@ -259,7 +286,7 @@ exports.createBookingOrder = async (req, res) => {
 
       guests,
 
-      guestDetails,
+      guestDetails: sanitizedGuests,
 
       totalAmount,
 
@@ -338,6 +365,8 @@ exports.createBookingOrder = async (req, res) => {
 //
 
 exports.verifyPayment = async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
 
     const {
@@ -372,133 +401,194 @@ exports.verifyPayment = async (req, res) => {
     }
 
     // ===========================================
+    // CHECK IF ALREADY PAID (avoid unnecessary transaction)
+    // ===========================================
+
+    const alreadyPaidOrder =
+      await Order.findOne({
+        razorpayOrderId:
+          razorpay_order_id,
+        paymentStatus: "paid",
+      });
+
+    if (alreadyPaidOrder) {
+      return res.status(200).json({
+        success: true,
+        type: "product",
+        alreadyProcessed: true,
+      });
+    }
+
+    const alreadyPaidBooking =
+      await Booking.findOne({
+        razorpayOrderId:
+          razorpay_order_id,
+        paymentStatus: "paid",
+      });
+
+    if (alreadyPaidBooking) {
+      return res.status(200).json({
+        success: true,
+        type: "booking",
+        alreadyProcessed: true,
+      });
+    }
+
+    // ===========================================
+    // START TRANSACTION
+    // ===========================================
+
+    session.startTransaction();
+
+    // ===========================================
     // PRODUCT ORDER
     // ===========================================
 
     const order =
-      await Order.findOne({
-        razorpayOrderId:
-          razorpay_order_id,
-      });
+      await Order.findOneAndUpdate(
+        {
+          razorpayOrderId:
+            razorpay_order_id,
+          paymentStatus: {
+            $ne: "paid",
+          },
+        },
+        {
+          $set: {
+            paymentStatus:
+              "paid",
+            status: "confirmed",
+            razorpayPaymentId:
+              razorpay_payment_id,
+            razorpaySignature:
+              razorpay_signature,
+            paidAt: new Date(),
+            webhookProcessed: true,
+          },
+        },
+        {
+          new: true,
+          session,
+        }
+      );
 
     if (order) {
 
-      let populatedOrder = null;
+      const populatedOrder =
+        await Order.findById(
+          order._id
+        )
+          .populate(
+            "products.product"
+          )
+          .populate("user")
+          .session(session);
 
       // ===========================================
-      // PREVENT DUPLICATE UPDATE
+      // REDUCE STOCK (atomic)
       // ===========================================
 
-      if (
-        order.paymentStatus !== "paid"
-      ) {
+      for (const item of populatedOrder.products) {
 
-        order.paymentStatus = "paid";
-
-        order.status = "confirmed";
-
-        order.razorpayPaymentId =
-          razorpay_payment_id;
-
-        order.razorpaySignature =
-          razorpay_signature;
-
-        order.paidAt = new Date();
-
-        await order.save();
-
-        // ===========================================
-        // POPULATE ORDER
-        // ===========================================
-
-        populatedOrder =
-          await Order.findById(order._id)
-            .populate(
-              "products.product"
-            )
-            .populate("user");
-
-        // ===========================================
-        // REDUCE STOCK
-        // ===========================================
-
-        for (const item of populatedOrder.products) {
-
-          await Product.findByIdAndUpdate(
-            item.product._id,
+        const updatedProduct =
+          await Product.findOneAndUpdate(
+            {
+              _id:
+                item.product._id,
+              stock: {
+                $gte:
+                  item.quantity,
+              },
+            },
             {
               $inc: {
                 stock:
                   -item.quantity,
               },
-            }
-          );
-        }
-
-        // ===========================================
-        // CLEAR CART
-        // ===========================================
-
-        await User.findByIdAndUpdate(
-          populatedOrder.user._id,
-          {
-            $set: {
-              cart: [],
             },
-          }
-        );
-
-        // ===========================================
-        // SEND MAILS
-        // ===========================================
-
-        try {
-
-          await sendMailByType(
-            "PRODUCT_ORDER",
             {
-              user:
-                populatedOrder.user,
-
-              orderId:
-                populatedOrder._id,
-
-              products:
-                populatedOrder.products,
-
-              totalAmount:
-                populatedOrder.totalAmount,
-
-              address:
-                populatedOrder.deliveryAddress,
+              new: true,
+              session,
             }
           );
 
-          // ===========================================
-          // UPDATE MAIL STATUS
-          // ===========================================
+        if (!updatedProduct) {
 
-          order.emailSent = true;
+          await session.abortTransaction();
 
-          await order.save();
+          session.endSession();
 
-          console.log(
-            "✅ Product mails sent"
-          );
+          return res.status(400).json({
+            success: false,
+            msg: `Insufficient stock for ${item.product.name}`,
+          });
+        }
+      }
 
-        } catch (mailErr) {
+      // ===========================================
+      // CLEAR CART
+      // ===========================================
 
+      await User.findByIdAndUpdate(
+        populatedOrder.user._id,
+        {
+          $set: {
+            cart: [],
+          },
+        },
+        {
+          session,
+        }
+      );
+
+      // ===========================================
+      // COMMIT TRANSACTION
+      // ===========================================
+
+      await session.commitTransaction();
+
+      session.endSession();
+
+      console.log(
+        "✅ Product Payment Verified:",
+        order._id
+      );
+
+      // ===========================================
+      // SEND MAILS (non-blocking)
+      // ===========================================
+
+      sendMailByType(
+        "PRODUCT_ORDER",
+        {
+          user:
+            populatedOrder.user,
+          orderId:
+            populatedOrder._id,
+          products:
+            populatedOrder.products,
+          totalAmount:
+            populatedOrder.totalAmount,
+          address:
+            populatedOrder.deliveryAddress,
+        }
+      )
+        .then(() =>
+          Order.findByIdAndUpdate(
+            order._id,
+            {
+              $set: {
+                emailSent: true,
+              },
+            }
+          )
+        )
+        .catch((e) =>
           console.error(
             "PRODUCT MAIL ERROR:",
-            mailErr
-          );
-        }
-
-        console.log(
-          "✅ Product Payment Verified:",
-          order._id
+            e.message
+          )
         );
-      }
 
       return res.status(200).json({
         success: true,
@@ -511,123 +601,155 @@ exports.verifyPayment = async (req, res) => {
     // ===========================================
 
     const booking =
-      await Booking.findOne({
-        razorpayOrderId:
-          razorpay_order_id,
-      });
+      await Booking.findOneAndUpdate(
+        {
+          razorpayOrderId:
+            razorpay_order_id,
+          paymentStatus: {
+            $ne: "paid",
+          },
+          webhookProcessed: {
+            $ne: true,
+          },
+        },
+        {
+          $set: {
+            paymentStatus:
+              "paid",
+            status: "confirmed",
+            razorpayPaymentId:
+              razorpay_payment_id,
+            razorpaySignature:
+              razorpay_signature,
+            paidAt: new Date(),
+            webhookProcessed: true,
+          },
+          $unset: {
+            expiresAt: 1,
+          },
+        },
+        {
+          new: true,
+          session,
+        }
+      );
 
     if (booking) {
 
-      let populatedBooking = null;
-
       // ===========================================
-      // PREVENT DUPLICATE UPDATE
+      // CHECK OVERLAPPING BOOKINGS
       // ===========================================
 
-      if (
-        booking.paymentStatus !==
-        "paid"
-      ) {
+      const overlapping =
+        await Booking.findOne({
+          _id: {
+            $ne: booking._id,
+          },
+          room: booking.room,
+          status: "confirmed",
+          checkIn: {
+            $lt:
+              booking.checkOut,
+          },
+          checkOut: {
+            $gt:
+              booking.checkIn,
+          },
+        }).session(session);
 
-        booking.paymentStatus =
-          "paid";
+      if (overlapping) {
 
-        booking.status =
-          "confirmed";
+        await session.abortTransaction();
 
-        booking.razorpayPaymentId =
-          razorpay_payment_id;
+        session.endSession();
 
-        booking.razorpaySignature =
-          razorpay_signature;
+        return res.status(400).json({
+          success: false,
+          msg: "Room already booked for selected dates",
+        });
+      }
 
-        booking.paidAt =
-          new Date();
+      // ===========================================
+      // UNBLOCK ROOM
+      // ===========================================
 
-        booking.expiresAt = null;
-
-        await booking.save();
-
-        // ===========================================
-        // UNBLOCK ROOM
-        // ===========================================
-
-        await Room.findByIdAndUpdate(
-          booking.room,
-          {
+      await Room.findByIdAndUpdate(
+        booking.room,
+        {
+          $set: {
             isBlocked: false,
             blockedUntil: null,
-          }
-        );
+          },
+        },
+        {
+          session,
+        }
+      );
 
-        // ===========================================
-        // POPULATE BOOKING
-        // ===========================================
+      // ===========================================
+      // POPULATE BOOKING
+      // ===========================================
 
-        populatedBooking =
-          await Booking.findById(
-            booking._id
-          )
-            .populate("user")
-            .populate("room");
+      const populatedBooking =
+        await Booking.findById(
+          booking._id
+        )
+          .populate("user")
+          .populate("room")
+          .session(session);
 
-        // ===========================================
-        // SEND MAILS
-        // ===========================================
+      // ===========================================
+      // COMMIT TRANSACTION
+      // ===========================================
 
-        try {
+      await session.commitTransaction();
 
-          await sendMailByType(
-            "VILLA_BOOKING",
+      session.endSession();
+
+      console.log(
+        "✅ Booking Payment Verified:",
+        booking._id
+      );
+
+      // ===========================================
+      // SEND MAILS (non-blocking)
+      // ===========================================
+
+      sendMailByType(
+        "VILLA_BOOKING",
+        {
+          user:
+            populatedBooking.user,
+          bookingId:
+            populatedBooking._id,
+          room:
+            populatedBooking.room,
+          checkIn:
+            populatedBooking.checkIn,
+          checkOut:
+            populatedBooking.checkOut,
+          totalAmount:
+            populatedBooking.totalAmount,
+          guestDetails:
+            populatedBooking.guestDetails,
+        }
+      )
+        .then(() =>
+          Booking.findByIdAndUpdate(
+            booking._id,
             {
-              user:
-                populatedBooking.user,
-
-              bookingId:
-                populatedBooking._id,
-
-              room:
-                populatedBooking.room,
-
-              checkIn:
-                populatedBooking.checkIn,
-
-              checkOut:
-                populatedBooking.checkOut,
-
-              totalAmount:
-                populatedBooking.totalAmount,
-
-              guestDetails:
-                populatedBooking.guestDetails,
+              $set: {
+                emailSent: true,
+              },
             }
-          );
-
-          // ===========================================
-          // UPDATE MAIL STATUS
-          // ===========================================
-
-          booking.emailSent = true;
-
-          await booking.save();
-
-          // console.log(
-          //   "✅ Booking mails sent"
-          // );
-
-        } catch (mailErr) {
-
+          )
+        )
+        .catch((e) =>
           console.error(
             "BOOKING MAIL ERROR:",
-            mailErr
-          );
-        }
-
-        // console.log(
-        //   "✅ Booking Payment Verified:",
-        //   booking._id
-        // );
-      }
+            e.message
+          )
+        );
 
       return res.status(200).json({
         success: true,
@@ -639,12 +761,32 @@ exports.verifyPayment = async (req, res) => {
     // NOTHING FOUND
     // ===========================================
 
+    await session.abortTransaction();
+
+    session.endSession();
+
     return res.status(404).json({
       success: false,
       msg: "Order/Booking not found",
     });
 
   } catch (err) {
+
+    try {
+
+      if (
+        session.inTransaction()
+      ) {
+        await session.abortTransaction();
+      }
+    } catch (abortErr) {
+      console.error(
+        "Transaction Abort Error:",
+        abortErr
+      );
+    }
+
+    session.endSession();
 
     console.error(
       "VERIFY PAYMENT ERROR:",
@@ -762,6 +904,112 @@ exports.markPaymentFailed = async (req, res) => {
     return res.status(500).json({
       success: false,
       msg: "Failed to update payment",
+    });
+  }
+};
+
+//
+// ===========================================
+// 💰 REFUND
+// ===========================================
+//
+
+exports.refundPayment = async (req, res) => {
+  try {
+    const { razorpay_payment_id } = req.body;
+
+    if (!razorpay_payment_id) {
+      return res.status(400).json({
+        success: false,
+        msg: "razorpay_payment_id required",
+      });
+    }
+
+    // ================= INITIATE REFUND =================
+
+    const refund = await razorpay.payments.refund(
+      razorpay_payment_id,
+      { speed: "normal" }
+    );
+
+    // ================= UPDATE ORDER =================
+
+    const order = await Order.findOne({
+      razorpayPaymentId: razorpay_payment_id,
+    });
+
+    if (order) {
+      order.paymentStatus = "refunded";
+      order.status = "refunded";
+      order.timeline.push({
+        status: "refunded",
+        date: new Date(),
+        updatedBy: req.user?.id,
+        notes: `Refund initiated: ₹${(refund.amount || 0) / 100}`,
+      });
+
+      // Restore stock
+      const populated = await Order.findById(order._id)
+        .populate("products.product");
+
+      if (populated) {
+        for (const item of populated.products) {
+          await Product.findByIdAndUpdate(item.product._id, {
+            $inc: { stock: item.quantity },
+          });
+        }
+      }
+
+      await order.save();
+
+      console.log(`✅ Refund processed for order: ${order._id}`);
+
+      return res.status(200).json({
+        success: true,
+        type: "product",
+        refundId: refund.id,
+        amount: refund.amount,
+      });
+    }
+
+    // ================= UPDATE BOOKING =================
+
+    const booking = await Booking.findOne({
+      razorpayPaymentId: razorpay_payment_id,
+    });
+
+    if (booking) {
+      booking.paymentStatus = "refunded";
+      booking.status = "cancelled";
+
+      // Unblock room
+      await Room.findByIdAndUpdate(booking.room, {
+        isBlocked: false,
+        blockedUntil: null,
+      });
+
+      await booking.save();
+
+      console.log(`✅ Refund processed for booking: ${booking._id}`);
+
+      return res.status(200).json({
+        success: true,
+        type: "booking",
+        refundId: refund.id,
+        amount: refund.amount,
+      });
+    }
+
+    return res.status(404).json({
+      success: false,
+      msg: "Order/Booking not found for this payment",
+    });
+
+  } catch (err) {
+    console.error("REFUND ERROR:", err);
+    return res.status(500).json({
+      success: false,
+      msg: err.message || "Refund failed",
     });
   }
 };

@@ -1,0 +1,712 @@
+{
+  "info": {
+    "name": "Maanjoo Farms API",
+    "description": "Complete API collection for Maanjoo Farms Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
+      "key": "roomId",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    },
+    {
+      "key": "bookingId",
+      "value": ""
+    },
+    {
+      "key": "galleryId",
+      "value": ""
+    },
+    {
+      "key": "blockedPincodeId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Signup",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signup"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "pm.collectionVariables.set('token', jsonData.token);",
+                  "pm.collectionVariables.set('userId', jsonData.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "Get All Products",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"]
+            }
+          }
+        },
+        {
+          "name": "Get Product By ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}"]
+            }
+          }
+        },
+        {
+          "name": "Add Product (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "New Product", "type": "text" },
+                { "key": "description", "value": "Product description", "type": "text" },
+                { "key": "price", "value": "500", "type": "text" },
+                { "key": "stock", "value": "100", "type": "text" },
+                { "key": "category", "value": "Dairy", "type": "text" },
+                { "key": "image", "type": "file", "src": "" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"]
+            }
+          }
+        },
+        {
+          "name": "Update Product (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Updated Product", "type": "text" },
+                { "key": "price", "value": "600", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Product (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rooms",
+      "item": [
+        {
+          "name": "Get All Rooms",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/rooms?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["rooms"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "category", "value": "villa", "disabled": true },
+                { "key": "type", "value": "cottage", "disabled": true },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "minPrice", "value": "", "disabled": true },
+                { "key": "maxPrice", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Room By ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/rooms/{{roomId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["rooms", "{{roomId}}"]
+            }
+          }
+        },
+        {
+          "name": "Check Availability",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/rooms/{{roomId}}/availability?checkIn=2024-12-25&checkOut=2024-12-27",
+              "host": ["{{baseUrl}}"],
+              "path": ["rooms", "{{roomId}}", "availability"],
+              "query": [
+                { "key": "checkIn", "value": "2024-12-25" },
+                { "key": "checkOut", "value": "2024-12-27" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Room (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Villa\",\n  \"category\": \"villa\",\n  \"type\": \"cottage\",\n  \"price\": 3000,\n  \"status\": \"available\",\n  \"description\": \"A beautiful villa\",\n  \"image\": \"https://example.com/image.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rooms",
+              "host": ["{{baseUrl}}"],
+              "path": ["rooms"]
+            }
+          }
+        },
+        {
+          "name": "Update Room (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 3500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rooms/{{roomId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["rooms", "{{roomId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Room (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rooms/{{roomId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["rooms", "{{roomId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cart",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart"]
+            }
+          }
+        },
+        {
+          "name": "Add to Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cart/add",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart", "add"]
+            }
+          }
+        },
+        {
+          "name": "Remove from Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cart/remove",
+              "host": ["{{baseUrl}}"],
+              "path": ["cart", "remove"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Get My Orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/my-orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "my-orders"]
+            }
+          }
+        },
+        {
+          "name": "Get All Orders (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/all",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "all"]
+            }
+          }
+        },
+        {
+          "name": "Update Order (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"shipped\",\n  \"trackingId\": \"TRACK123\",\n  \"courierName\": \"Delhivery\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders/update/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "update", "{{orderId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        {
+          "name": "Create Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": \"{{roomId}}\",\n  \"checkIn\": \"2024-12-25\",\n  \"checkOut\": \"2024-12-27\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            }
+          }
+        },
+        {
+          "name": "Get My Bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/my-bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "my-bookings"]
+            }
+          }
+        },
+        {
+          "name": "Get All Bookings (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings"]
+            }
+          }
+        },
+        {
+          "name": "Cancel Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/cancel/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["bookings", "cancel", "{{bookingId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Product Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": {\n    \"name\": \"John Doe\",\n    \"phone\": \"9876543210\",\n    \"email\": \"john@example.com\",\n    \"street\": \"123 Main St\",\n    \"apartment\": \"Apt 4B\",\n    \"city\": \"Jaipur\",\n    \"district\": \"Jaipur\",\n    \"state\": \"Rajasthan\",\n    \"pincode\": \"302001\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/product-order",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "product-order"]
+            }
+          }
+        },
+        {
+          "name": "Create Booking Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"villaId\": \"{{roomId}}\",\n  \"checkIn\": \"2024-12-25\",\n  \"checkOut\": \"2024-12-27\",\n  \"guests\": 2,\n  \"guestDetails\": [\n    { \"name\": \"John Doe\", \"age\": 30, \"gender\": \"male\" },\n    { \"name\": \"Jane Doe\", \"age\": 28, \"gender\": \"female\" }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/booking-order",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "booking-order"]
+            }
+          }
+        },
+        {
+          "name": "Verify Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razorpay_order_id\": \"order_xxxxxxxxx\",\n  \"razorpay_payment_id\": \"pay_xxxxxxxxx\",\n  \"razorpay_signature\": \"signature_string\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/verify-payment",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "verify-payment"]
+            }
+          }
+        },
+        {
+          "name": "Mark Payment Failed",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"razorpay_order_id\": \"order_xxxxxxxxx\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/payment-failed",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "payment-failed"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gallery",
+      "item": [
+        {
+          "name": "Get Gallery",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/gallery",
+              "host": ["{{baseUrl}}"],
+              "path": ["gallery"]
+            }
+          }
+        },
+        {
+          "name": "Add Gallery Item (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "Gallery Item", "type": "text" },
+                { "key": "image", "type": "file", "src": "" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/gallery",
+              "host": ["{{baseUrl}}"],
+              "path": ["gallery"]
+            }
+          }
+        },
+        {
+          "name": "Update Gallery Item (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "Updated Title", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/gallery/{{galleryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["gallery", "{{galleryId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Gallery Item (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/gallery/{{galleryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["gallery", "{{galleryId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Contact",
+      "item": [
+        {
+          "name": "Send Contact Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"9876543210\",\n  \"subject\": \"Product Inquiry\",\n  \"message\": \"I would like to know more about your products.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/contact",
+              "host": ["{{baseUrl}}"],
+              "path": ["contact"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pincode",
+      "item": [
+        {
+          "name": "Check Pincode",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/pincode/check/302001",
+              "host": ["{{baseUrl}}"],
+              "path": ["pincode", "check", "302001"]
+            }
+          }
+        },
+        {
+          "name": "Get Blocked Pincodes (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pincode/blocked",
+              "host": ["{{baseUrl}}"],
+              "path": ["pincode", "blocked"]
+            }
+          }
+        },
+        {
+          "name": "Block Pincode (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pincode\": \"123456\",\n  \"district\": \"Test District\",\n  \"state\": \"Test State\",\n  \"reason\": \"Delivery not available\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/pincode/blocked",
+              "host": ["{{baseUrl}}"],
+              "path": ["pincode", "blocked"]
+            }
+          }
+        },
+        {
+          "name": "Delete Blocked Pincode (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pincode/blocked/{{blockedPincodeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["pincode", "blocked", "{{blockedPincodeId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

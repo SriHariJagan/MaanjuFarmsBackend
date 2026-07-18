@@ -1,66 +1,155 @@
 [
   {
-    "name": "Desi Ghee",
-    "description": "Pure homemade Desi Ghee, prepared using traditional methods for authentic taste and health benefits.",
-    "price": 450,
+    "name": "A2 Cow Ghee",
+    "description": "Pure homemade A2 Cow Ghee prepared using traditional methods for authentic taste and health benefits.",
+    "price": 2200,
     "stock": 120,
     "image": "https://5.imimg.com/data5/SELLER/Default/2023/8/335955670/LB/IT/IH/191457182/buffalo-desi-ghee.jpg",
-    "category": "Dairy"
+    "category": "Dairy",
+    "unit": "liter"
   },
   {
-    "name": "Chana Dal",
-    "description": "High-quality Chana Dal rich in protein and perfect for Indian recipes like dal fry and chana dal curry.",
-    "price": 120,
+    "name": "Raw Honey",
+    "description": "Pure raw honey sourced from mustard and mixed flower nectar, rich in natural nutrients and flavor.",
+    "price": 600,
+    "stock": 170,
+    "image": "https://www.alphafoodie.com/wp-content/uploads/2024/12/Hot-Honey-square.jpeg",
+    "category": "Honey",
+    "unit": "kg"
+  },
+  {
+    "name": "Coriander Powder",
+    "description": "Freshly ground coriander powder with rich aroma, ideal for enhancing Indian cuisine.",
+    "price": 500,
+    "stock": 150,
+    "image": "https://www.jiomart.com/images/product/original/rvyoebsyph/natureland-organic-coriander-powder-100g-product-images-orvyoebsyph-p591729366-0-202205242117.jpg",
+    "category": "Spices",
+    "unit": "kg"
+  },
+  {
+    "name": "Red Chilli Powder",
+    "description": "Premium quality red chilli powder made from carefully selected dried chillies.",
+    "price": 600,
+    "stock": 150,
+    "image": "https://5.imimg.com/data5/SELLER/Default/2023/3/295926249/KL/TP/RD/10470897/red-chilli-powder.jpg",
+    "category": "Spices",
+    "unit": "kg"
+  },
+  {
+    "name": "Jeera",
+    "description": "Premium cumin seeds with a rich aroma and authentic flavor for Indian cooking.",
+    "price": 500,
+    "stock": 180,
+    "image": "https://5.imimg.com/data5/SELLER/Default/2023/2/KT/PH/OU/167723688/jeera-cumin-seeds.jpg",
+    "category": "Spices",
+    "unit": "kg"
+  },
+  {
+    "name": "Turmeric Powder",
+    "description": "Pure turmeric powder made from high-quality turmeric roots, known for its vibrant color and health benefits.",
+    "price": 500,
+    "stock": 180,
+    "image": "https://5.imimg.com/data5/SELLER/Default/2023/4/302263090/FY/OV/WY/188943216/turmeric-powder.jpg",
+    "category": "Spices",
+    "unit": "kg"
+  },
+  {
+    "name": "Wheat",
+    "description": "Premium quality wheat grains suitable for making fresh flour and daily household consumption.",
+    "price": 60,
     "stock": 250,
-    "image": "https://5.imimg.com/data5/YO/IK/MY-4757781/chana-dal-500x500.jpg",
-    "category": "Pulses"
+    "image": "https://5.imimg.com/data5/SELLER/Default/2022/6/DI/KG/WT/153538136/wheat-grain.jpg",
+    "category": "Grains",
+    "unit": "kg"
   },
   {
-    "name": "Moong Dal",
-    "description": "Nutritious split Moong Dal that cooks quickly, making it ideal for light, healthy meals.",
+    "name": "Green Gram",
+    "description": "Nutritious whole green gram rich in protein and ideal for sprouts, curries, and dals.",
     "price": 140,
     "stock": 200,
-    "image": "https://ifestore.com/wp-content/uploads/2024/03/green-mug-4.jpg",
-    "category": "Pulses"
+    "image": "https://5.imimg.com/data5/SELLER/Default/2021/12/QL/XP/JN/41686134/green-gram.jpg",
+    "category": "Pulses",
+    "unit": "kg"
   },
   {
-    "name": "Moth Dal",
-    "description": "Traditional Indian pulse with high protein and fiber, great for curries and sprouts.",
-    "price": 135,
-    "stock": 180,
-    "image": "https://image.myupchar.com/17473/webp/moth-dal-benefits-and-side-effects.webp",
-    "category": "Pulses"
-  },
-  {
-    "name": "Mustard Oil",
-    "description": "Cold-pressed mustard oil with a strong aroma, perfect for cooking and pickling.",
-    "price": 220,
-    "stock": 150,
-    "image": "https://sitarafoods.com/wp-content/uploads/2022/07/COLD-PRESSED-MUSTARD-OIL.jpg",
-    "category": "Oils"
+    "name": "Gram",
+    "description": "Premium quality whole gram packed with protein and essential nutrients.",
+    "price": 80,
+    "stock": 220,
+    "image": "https://5.imimg.com/data5/SELLER/Default/2021/10/US/FS/ZQ/137146316/chana.jpg",
+    "category": "Pulses",
+    "unit": "kg"
   },
   {
     "name": "Olive Oil",
-    "description": "Premium quality extra virgin olive oil, great for salads, cooking, and skincare.",
-    "price": 550,
+    "description": "Premium quality extra virgin olive oil suitable for cooking, salads, and healthy lifestyles.",
+    "price": 2000,
     "stock": 95,
     "image": "https://5.imimg.com/data5/SELLER/Default/2022/12/WY/JH/DF/12352081/olive-oil-4-500x500.png",
-    "category": "Oils"
+    "category": "Oils",
+    "unit": "liter"
+  },
+  {
+    "name": "Sarso Oil",
+    "description": "Cold-pressed mustard (Sarso) oil with authentic aroma and traditional taste.",
+    "price": 370,
+    "stock": 150,
+    "image": "https://sitarafoods.com/wp-content/uploads/2022/07/COLD-PRESSED-MUSTARD-OIL.jpg",
+    "category": "Oils",
+    "unit": "liter"
+  },
+  {
+    "name": "Til Oil",
+    "description": "Pure cold-pressed sesame (Til) oil suitable for cooking and Ayurvedic use.",
+    "price": 570,
+    "stock": 120,
+    "image": "https://5.imimg.com/data5/SELLER/Default/2021/2/NX/ZV/XK/103258992/sesame-oil.jpg",
+    "category": "Oils",
+    "unit": "liter"
   },
   {
     "name": "Groundnut Oil",
-    "description": "Pure cold-pressed groundnut oil that enhances the flavor of traditional Indian dishes.",
-    "price": 250,
+    "description": "Cold-pressed groundnut oil that enhances the flavor of traditional Indian dishes.",
+    "price": 470,
     "stock": 140,
     "image": "https://5.imimg.com/data5/GA/CM/MY-2443832/cool-pressed-groundnut-oil-500x500.jpg",
-    "category": "Oils"
+    "category": "Oils",
+    "unit": "liter"
   },
   {
-    "name": "Homemade Honey",
-    "description": "Raw, unprocessed honey harvested from local beehives, rich in natural nutrients and flavor.",
-    "price": 300,
-    "stock": 170,
-    "image": "https://www.alphafoodie.com/wp-content/uploads/2024/12/Hot-Honey-square.jpeg",
-    "category": "Honey"
+    "name": "Khajoor",
+    "description": "Fresh, naturally sweet dates packed with essential nutrients and energy.",
+    "price": 100,
+    "stock": 150,
+    "image": "https://5.imimg.com/data5/SELLER/Default/2022/8/HT/PP/LQ/5792765/dates.jpg",
+    "category": "Dry Fruits",
+    "unit": "kg"
+  },
+  {
+    "name": "Mosambi",
+    "description": "Fresh and juicy Mosambi (Sweet Lime), rich in Vitamin C and refreshing taste.",
+    "price": 60,
+    "stock": 180,
+    "image": "https://5.imimg.com/data5/SELLER/Default/2022/9/YQ/PG/KB/163925953/mosambi.jpg",
+    "category": "Fruits",
+    "unit": "kg"
+  },
+  {
+    "name": "Kinnow",
+    "description": "Fresh Kinnow oranges with a naturally sweet and tangy flavor.",
+    "price": 40,
+    "stock": 180,
+    "image": "https://5.imimg.com/data5/SELLER/Default/2022/10/TA/HC/BN/158307211/kinnow.jpg",
+    "category": "Fruits",
+    "unit": "kg"
+  },
+  {
+    "name": "Ber",
+    "description": "Fresh Ber fruit, naturally sweet and rich in vitamins and antioxidants.",
+    "price": 50,
+    "stock": 150,
+    "image": "https://5.imimg.com/data5/SELLER/Default/2022/11/YX/LO/WM/161334237/ber-fruit.jpg",
+    "category": "Fruits",
+    "unit": "kg"
   }
 ]

@@ -13,7 +13,11 @@ const userSchema = new mongoose.Schema(
         product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
         quantity: { type: Number, default: 1 }
       }
-    ]
+    ],
+
+    // Password reset fields
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
   },
   { timestamps: true }
 );
